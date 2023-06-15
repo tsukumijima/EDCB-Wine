@@ -1,0 +1,35 @@
+-- vim:set ft=lua:
+dofile(mg.document_root..'\\api\\util.lua')
+edcb.htmlEscape=15
+a=edcb.GetReserveData()
+rsdef=edcb.GetReserveData(0x7FFFFFFF)
+ct={'<?xml version="1.0" encoding="UTF-8" ?><entry><total>'..#a..'</total><index>0</index><count>'..#a..'</count><items>\r\n'}
+for i,v in ipairs(a) do
+  table.insert(ct, '<reserveinfo><ID>'
+    ..v.reserveID..'</ID><title>'
+    ..v.title..'</title><startDate>'
+    ..string.format('%d/%02d/%02d</startDate><startTime>%02d:%02d:%02d</startTime><startDayOfWeek>',
+                    v.startTime.year, v.startTime.month, v.startTime.day, v.startTime.hour, v.startTime.min, v.startTime.sec)
+    ..(v.startTime.wday-1)..'</startDayOfWeek><duration>'
+    ..v.durationSecond..'</duration><service_name>'
+    ..v.stationName..'</service_name><ONID>'
+    ..v.onid..'</ONID><TSID>'
+    ..v.tsid..'</TSID><SID>'
+    ..v.sid..'</SID><eventID>'
+    ..v.eid..'</eventID><comment>'
+    ..v.comment..'</comment><overlapMode>'
+    ..v.overlapMode..'</overlapMode>'
+    ..xmlRecSetting(v.recSetting, rsdef)
+    ..'<recFileNameList>')
+  for j,w in ipairs(v.recFileNameList) do
+    table.insert(ct, '<name>'..w..'</name>')
+  end
+  table.insert(ct, '</recFileNameList></reserveinfo>\r\n')
+end
+table.insert(ct, '</items></entry>')
+cl=0
+for i,v in ipairs(ct) do cl=cl+#v end
+mg.write(Response(200, 'text/xml', 'utf-8', cl) ..'\r\n')
+if mg.request_info.request_method~='HEAD' then
+  for i,v in ipairs(ct) do mg.write(v) end
+end

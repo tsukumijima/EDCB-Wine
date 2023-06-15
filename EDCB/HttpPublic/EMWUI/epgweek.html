@@ -1,0 +1,201 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'epg.lua')
+
+show=mg.get_var(mg.request_info.query_string,'show')
+hour=GetVarInt(mg.request_info.query_string,'hour',-1,27) or 4
+--hour=-1で現在時刻-MARGIN_HOUR時間を基準
+interval=GetVarInt(mg.request_info.query_string,'interval',0,25) or DEF_interval
+
+onid=GetVarInt(mg.request_info.query_string,'onid') or 0
+tsid=GetVarInt(mg.request_info.query_string,'tsid') or 0
+sid=GetVarInt(mg.request_info.query_string,'sid') or 0
+
+baseDate=math.floor((now+timezone-4*3600)/24/3600)
+Hour=hour<0 and math.floor((((now+timezone)%(24*3600))/3600)-MARGIN_HOUR)%24 or hour
+if Hour<4-(hour==0 and MARGIN_HOUR or 0) then Hour=Hour+24 end
+Hour=Hour+interval>29 and 29-interval or Hour
+baseTime=(baseDate*24+Hour)*3600
+
+NOW=baseTime<now+timezone and now+timezone<baseTime+interval*3600
+
+hrefGene=(hour~=4 and '&amp;hour='..hour or '')..(interval~=DEF_interval and '&amp;interval='..interval or '')
+
+
+edcb.htmlEscape=15
+
+rt={}
+for i,v in ipairs(edcb.GetReserveData()) do
+  rt[v.onid..'-'..v.tsid..'-'..v.sid..'-'..v.eid]=v.reserveID
+end
+
+ServiceList=CustomServiceList()
+st=ServiceList[1]
+for j,v in ipairs(ServiceList) do
+  if onid==v.onid and tsid==v.tsid and sid==v.sid then
+    st=v
+    break
+  end
+end
+
+
+ct={
+  title='週間番組表 <span class="mdl-typography--subhead mdl-cell--hide-phone">('..(st and st.service_name or '')..')</span>',
+  css=epgcss(),
+  js=epgjs(Hour,'$(function(){end($($(".now")));setInterval("line()", 1000);});'),
+  progres=true,
+  macro=sidePanel,
+  dialog={{
+    id='suspend',
+    button='<button class="ok mdl-button">OK</button>'
+  }}
+}
+
+ct.subheader='<div id="subheader">\n'
+  ..'<nav class="mdl-navigation">\n'
+  ..'<div class="mdl-layout-spacer"></div>\n'
+
+  ..'<div class="dividers navigation__item navigation__icon"><a class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored" '
+  ..(NOW and 'id="now' or 'href="epgweek.html?onid='..st.onid..'&amp;tsid='..st.tsid..'&amp;sid='..st.sid..'&amp;hour=-1'..(interval~=DEF_interval and '&amp;interval='..interval or '')..'"')
+  ..'"><i class="material-icons">radio_button_checked</i></a></div>\n'
+
+  ..'<div id="select" class="pulldown dividers navigation__item mdl-color-text--primary">絞り込む</div>\n'
+  ..'<div id="select_service" class="pulldown dividers navigation__item mdl-color-text--primary">'..(st and st.service_name or '')..'</div>\n'
+
+ct.menu='<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="select">\n'
+  ..'<li><a class="select mdl-menu__item mdl-color-text--accent" data-val="li">すべて</a></li>\n'
+
+NetworkList={}
+for i,v in ipairs(NetworkIndex()) do
+  NetworkList[i]={}
+end
+for i,v in ipairs(ServiceList) do
+  if oneseg or not v.partialReceptionFlag then
+    table.insert(NetworkList[NetworkIndex(v)], '<li class="network'..NetworkIndex(v)..(v.subCh and ' hidden' or '')..'"><a class="mdl-menu__item '..(st.onid==v.onid and st.tsid==v.tsid and st.sid==v.sid and ' mdl-color-text--accent' or '" href="epgweek.html?onid='..v.onid..'&amp;tsid='..v.tsid..'&amp;sid='..v.sid..hrefGene)..'">'..v.service_name..'</a></li>\n')
+  end
+end
+
+ctt={}
+for i,v in ipairs(NetworkList) do
+  if #v>0 then
+    ct.menu=ct.menu..'<li><a class="select mdl-menu__item" data-val=".network'..i..'">'..NetworkIndex()[i]..'</a></li>\n'
+    table.insert(ctt, table.concat(v))
+  end
+end
+ct.menu=ct.menu..'</ul>\n'
+
+  ..'<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="select_service">\n'..table.concat(ctt)..'</ul>\n'
+
+if st then
+  ct.subheader=ct.subheader..'<div id="time" class="pulldown navigation__item mdl-color-text--primary">時間</div>\n'
+
+  ct.menu=ct.menu..'<ul class="widemenu text-right mdl-menu mdl-menu--bottom-right mdl-js-menu" for="time">\n'
+
+  n=interval>=25 and Hour or 4
+  for i=n, n+math.max(interval-2, 23) ,2 do
+    j=(interval==25 and Hour or 4)+i
+    if Hour<=i and i<Hour+interval then
+      ct.menu=ct.menu..'<li><a class="scroller mdl-menu__item'..(interval<25 and ' mdl-color-text--accent' or '')..'" href="#H'..i..'">'..(i%24+(i%24<4 and 24 or 0))..'時</a></li>\n'
+    else
+      ct.menu=ct.menu..'<li><a class="mdl-menu__item" href="epgweek.html?onid='..st.onid..'&amp;tsid='..st.tsid..'&amp;sid='..st.sid..'&amp;hour='..(i%24)..(interval~=DEF_interval and '&amp;interval='..interval or '')..'">'..(i%24+(i%24<4 and 24 or 0))..'時</a></li>\n'
+    end
+  end
+  ct.menu=ct.menu..'</ul>\n'
+end
+
+ct.subheader=ct.subheader
+  ..'<div class="space navigation__item"></div>\n'
+  ..'</nav>\n</div>\n'
+
+ct.menu=ct.menu
+  ..'<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="menu">\n'
+  ..'<li class="api_tools mdl-menu__item" data-epg="epgcap" data-ctok="'..CsrfToken('common')..'">EPG取得</li>\n'
+  ..'<li class="api_tools mdl-menu__item mdl-menu__item--full-bleed-divider" data-epg="reload" data-ctok="'..CsrfToken('common')..'">EPG再読み込み</li>\n'
+  ..'<li class="suspend mdl-menu__item" data-suspend="standby" data-ctok="'..CsrfToken('common')..'">スタンバイ</li>\n'
+  --..'<li class="suspend mdl-menu__item" data-suspend="hibernation" data-ctok="'..CsrfToken('common')..'">休止</li>\n'
+  ..'</ul>\n'
+
+
+ct.side='<input type="checkbox" class="hidden" id="a">\n'
+  ..'<label class="drop-down mdl-navigation__link" for="a">ジャンル</label>\n'
+  ..'<ul>\n<li><label class="mdl-radio mdl-js-radio" for="g-all"><input type="radio" id="g-all" class="genreToggle mdl-radio__button" name="genreToggle" value="all" checked><span class="mdl-radio__label">すべて</span></label></li>\n'
+
+  for i=0,15 do
+    nibble1=edcb.GetGenreName(i*256+255)
+    if nibble1~='' then
+      ct.side=ct.side..'<li><label class="mdl-radio mdl-js-radio" for="g-'..(i*256+255)..'"><input type="radio" id="g-'..(i*256+255)..'" class="genreToggle mdl-radio__button" name="genreToggle" value=".'..CATEGORY[i+1]..'"><span class="mdl-radio__label">'..nibble1..'</span></label></li>\n'
+    end
+  end
+ct.side=ct.side..'</ul>\n<div class="drawer-separator"></div>\n'
+
+
+ctt={}
+op={service_name=st.service_name}
+for i=0,7 do
+  table.insert(ctt, '<div class="station" data-name="'..st.service_name..'"><div>\n')
+  lastPx=0
+  total=0
+  b=edcb.EnumEventInfo({{onid=st.onid, tsid=st.tsid, sid=st.sid}}, {startTime=os.date('!*t',baseTime+(i*24-6)*3600), durationSecond=(interval+6)*3600}) or {}
+  for j,w in ipairs(edcb.EnumEventInfoArchive and
+      edcb.EnumEventInfoArchive({{onid=st.onid, tsid=st.tsid, sid=st.sid}}, {startTime=os.date('!*t',baseTime+(i*24-6)*3600), durationSecond=(interval+6)*3600}) or {}) do
+    w.past=true
+    table.insert(b, w)
+  end
+  table.sort(b, function(a,b) return os.time(a.startTime)<os.time(b.startTime) end)
+  for j,w in ipairs(b) do
+    startTime=os.time(w.startTime)
+    startPx=math.min(math.floor((startTime+timezone-baseTime-i*24*3600)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+    endTime=w.durationSecond and startTime+w.durationSecond or (j<#b and os.time(b[j+1].startTime) or startTime) --終了時間未定
+    endPx=math.min(math.floor((endTime+timezone-baseTime-i*24*3600)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+    if startPx-lastPx>0 then
+      table.insert(ctt, '<div class="cell" data-endtime="'..startTime..'" style="height:'..(startPx-lastPx)..'px"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
+      total=total+startPx-lastPx
+      lastPx=startPx
+    end
+    if endPx-lastPx>2 then
+      op.url='epginfo.html?onid='..w.onid..'&amp;tsid='..w.tsid..'&amp;sid='..w.sid..(w.past and '&amp;startTime='..startTime+timezone or '&amp;eid='..w.eid)..'&amp;week='..hrefGene
+      table.insert(ctt, epgcell(w, op))
+
+      total=total+endPx-lastPx
+      lastPx=endPx
+    end
+  end
+  if total<interval*60*ONE_MIN_PX then
+    table.insert(ctt, '<div class="cell" style="height:'..(interval*60*ONE_MIN_PX-total)..'px"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
+  end
+  table.insert(ctt, '</div></div>\n')
+end
+
+ct.main='<main class="sidePanel-container mdl-layout__content">\n'
+
+  ..(sidePanel and sidePanelTemplate() or '')
+
+  ..'<div id="tv-guide-container"><div id="tv-guide">'
+  ..'<div id="tv-guide-header" class="mdl-color--primary mdl-shadow--4dp">\n<div class="hour-container"></div>\n'
+  for i=0,7 do
+    d=os.date('!*t', ((i+baseDate)*24)*3600)
+    d=d.month..'/'..d.day..'('..({'日','月','火','水','木','金','土'})[d.wday]..')'
+    ct.main=ct.main..'<a class="station mdl-typography--body-2 mdl-color-text--primary-contrast">'..d..'</a>\n'
+  end
+ct.main=ct.main..'</div>\n'
+
+  ..'<div id="tv-guide-main">\n'
+  ..'<div class="hour-container mdl-color-text--white mdl-shadow--2dp">\n'
+  for i=Hour,Hour+interval-1 do
+    j=i%24
+    ct.main=ct.main..'<div id="H'..i..'" class="hour t'..j..'"><tt>'..(j<4 and j+24 or j)..'時</tt></div>'
+  end
+ct.main=ct.main..(NOW and '<div id="line"><span></span></div>' or '')..'</div>\n'
+
+table.insert(ctt, '</div>\n</div></div>\n'
+  ..'<form id="autoepg" method="POST" target="_blank" action="autoaddepginfo.html?week=&amp;onid='..onid..'&amp;tsid='..tsid..'&amp;sid='..sid..'">\n'
+  ..'<input type="hidden" name="ctok" value="'..CsrfToken('autoaddepginfo.html')..'">\n'
+  ..'<input type="hidden" name="andKey">\n'
+  ..'<input type="hidden" name="serviceList" value="'..onid..'-'..tsid..'-'..sid..'">\n'
+  ..'</form>\n')
+
+ctt[1]=ct.main..ctt[1]
+ct.main=table.concat(ctt)
+
+ct=template(ct)
+
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))

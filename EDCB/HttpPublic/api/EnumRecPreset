@@ -1,0 +1,20 @@
+-- vim:set ft=lua:
+dofile(mg.document_root..'\\api\\util.lua')
+edcb.htmlEscape=15
+a=edcb.EnumRecPresetInfo()
+rsdef=edcb.GetReserveData(0x7FFFFFFF)
+ct={'<?xml version="1.0" encoding="UTF-8" ?><entry><total>'..#a..'</total><index>0</index><count>'..#a..'</count><items>\r\n'}
+for i,v in ipairs(a) do
+  table.insert(ct, '<recpresetinfo><id>'
+    ..v.id..'</id><name>'
+    ..v.name..'</name>'
+    ..xmlRecSetting(v.recSetting, rsdef)
+    ..'</recpresetinfo>\r\n')
+end
+table.insert(ct, '</items></entry>')
+cl=0
+for i,v in ipairs(ct) do cl=cl+#v end
+mg.write(Response(200, 'text/xml', 'utf-8', cl) ..'\r\n')
+if mg.request_info.request_method~='HEAD' then
+  for i,v in ipairs(ct) do mg.write(v) end
+end

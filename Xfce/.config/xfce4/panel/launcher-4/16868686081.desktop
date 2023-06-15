@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Task Manager
+Name[ja]=タスクマネージャー
+Comment=Easy to use application to monitor system resources
+Comment[ja]=システムリソースを監視するための使いやすいアプリケーション
+GenericName=Task Manager
+GenericName[ja]=タスクマネージャー
+Exec=xfce4-taskmanager
+Icon=org.xfce.taskmanager
+Terminal=false
+StartupNotify=true
+Type=Application
+Categories=System;Utility;
+X-XFCE-Source=file:///usr/share/applications/xfce4-taskmanager.desktop

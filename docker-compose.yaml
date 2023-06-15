@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  edcb-wine:
+    image: edcb-wine
+    container_name: EDCB-Wine
+    build:
+      context: .
+    restart: unless-stopped
+    privileged: true
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - '4510:4510'
+      - '5510:5510'
+      - '6510:6510'
+    volumes:
+      - type: bind
+        source: './EDCB/'
+        target: '/EDCB/'
+      - type: bind
+        source: '/'
+        target: '/host-rootfs/'

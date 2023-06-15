@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=EpgDataCap_Bon
+Comment=
+Exec=/opt/wine-stable/bin/wine /EDCB/EpgDataCap_Bon.exe
+Icon=/EDCB/EpgDataCap_Bon.ico
+Path=/EDCB
+Terminal=false
+StartupNotify=false

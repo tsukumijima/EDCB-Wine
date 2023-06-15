@@ -1,0 +1,131 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+vtag=GetVarInt(mg.request_info.query_string,'vtag') or -1
+
+ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+ct:Append([=[
+<!DOCTYPE HTML]=]..(vtag<=0 and ' PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"' or '')..[=[>
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>録画済み詳細 - EDCB</title>
+</head>
+<body>
+<h1>録画済み詳細</h1>
+<div id="main">
+]=])
+
+id=GetVarInt(mg.request_info.query_string,'id') or 0
+xq=GetTranscodeQueries(mg.request_info.query_string)
+
+post=AssertPost()
+if post then
+  if mg.get_var(post,'protect') then
+    edcb.ChgProtectRecFileInfo(id,mg.get_var(post,'protect')=='y')
+    ct:Append('  <div id="result">変更しました</div>\n')
+  elseif mg.get_var(post,'del') then
+    edcb.DelRecFileInfo(id)
+    ct:Append('  <div id="result">削除しました</div>\n')
+  end
+end
+
+w=edcb.GetRecFileInfoBasic(id)
+edcb.htmlEscape=15
+v=edcb.GetRecFileInfo(id)
+if v then
+  if #v.programInfo>0 then
+    v.programInfo=DecorateUri(v.programInfo)
+  elseif v.eid~=65535 then
+    --過去番組情報を探してみる
+    ev=edcb.EnumEventInfoArchive and edcb.EnumEventInfoArchive({{onid=v.onid,tsid=v.tsid,sid=v.sid}},{startTime=v.startTime,durationSecond=1})
+    if ev and #ev>0 then
+      v.programInfo=ConvertProgramText(ev[1])
+    else
+      --番組情報を探してみる
+      ev=edcb.SearchEpg(v.onid,v.tsid,v.sid,v.eid)
+      if ev and ev.startTime and os.time(ev.startTime)==os.time(v.startTime) then
+        v.programInfo=ConvertProgramText(ev)
+      end
+    end
+  end
+  ct:Append('  <dl>\n'
+    ..'    <dt>番組名</dt><dd>'..FormatTimeAndDuration(v.startTime, v.durationSecond)..'<br>'..v.serviceName..'<br>'..v.title..'</dd>\n'
+    ..'    <dt>結果</dt><dd>'..v.comment..'</dd>\n'
+    ..'    <dt>ドロップ</dt><dd>'..v.drops..'</dd>\n'
+    ..'    <dt>スクランブル</dt><dd>'..v.scrambles..'</dd>\n'
+    ..'    <dt>ファイル →<a href="recinfodesc.html?id='..v.id..ConstructTranscodeQueries(xq)
+    ..'&amp;vtag='..(vtag==0 and '-1">Video' or '0">DL')..'</a></dt><dd>\n')
+  ref=w and NativeToDocumentPath(w.recFilePath)
+  if ref then
+    for i,ext in ipairs({table.unpack(MEDIA_EXTENSION_LIST),''}) do
+      ff=edcb.FindFile and edcb.FindFile(w.recFilePath..ext,1)
+      if ff then
+        ct:Append((vtag==i and '<div class="data-broadcasting-browser-container"><div class="data-broadcasting-browser-content"></div></div>'
+                     ..'<div class="video-full-container arib-video-invisible-container" id="vid-full">'
+                     ..'<div class="video-container arib-video-container" id="vid-cont">'
+                     ..'<video id="vid" autoplay controls src="' or '<a href="')
+          ..(vtag~=0 and vtag~=i and 'recinfodesc.html?id='..v.id..'&amp;vtag='..i or PathToRoot()..mg.url_encode(ref..ext):gsub('%%2f','/'))
+          ..'">/'..EdcbHtmlEscape(ref..ext)..(vtag==i and '<track id="vid-meta" kind="metadata" src="'..PathToRoot()..mg.url_encode(ref..ext):gsub('%%2f','/'):gsub('%.[0-9A-Za-z]+$','')
+                                                ..'.vtt" type="text/vtt" default></video></div></div>\n'
+                                                ..'<div id="psidatasrc" style="display:none">'..PathToRoot()..mg.url_encode(ref..ext):gsub('%%2f','/'):gsub('%.[0-9A-Za-z]+$','')
+                                                ..'.psc</div>\n'..VideoScriptTemplete() or '</a>'))
+        if ext=='' then
+          fsec,fsize=0,0
+          f=edcb.io.open(w.recFilePath,'rb')
+          if f then
+            fsec,fsize=GetDurationSec(f)
+            f:close()
+          end
+          ct:Append(' ('..('%dm%02ds|'):format(math.floor(fsec/60),fsec%60)..math.floor(fsize/1048576)..'M)<br>\n'
+            ..'<form method="GET" action="'..(vtag==0 and 'xcode.lua' or 'recinfodesc.html')..'"><div>\n'
+            ..(vtag==0 and '<input type="hidden" name="fname" value="'..EdcbHtmlEscape(ref)..'">\n'
+                 or '<input type="hidden" name="id" value="'..v.id..'">\n<input type="hidden" name="vtag" value="10">\n')
+            ..'<button type="submit">xcode</button>\n'
+            ..TranscodeSettingTemplete(xq,fsec)
+            ..'</div></form>')
+          if vtag==10 then
+            src='xcode.lua?fname='..mg.url_encode(ref)..ConstructTranscodeQueries(xq)
+            ct:Append('\n<div class="data-broadcasting-browser-container"><div class="data-broadcasting-browser-content"></div></div>'
+              ..'<div class="video-full-container arib-video-invisible-container" id="vid-full">'
+              ..'<div class="video-container arib-video-container" id="vid-cont">'
+              ..'<video id="vid" autoplay controls'..(ALLOW_HLS and '' or ' src="'..src..'"')..'>xcode</video></div></div>\n'
+              ..'<div id="vidsrc" style="display:none">'..src..'</div>\n'..TranscodeScriptTemplete(false,{ofssec=fsec*(xq.offset or 0)/100,fast=xq.fast}))
+            if ALLOW_HLS then
+              ct:Append(HlsScriptTemplete(xq.caption))
+            end
+          end
+        else
+          ct:Append(' ('..math.floor(ff[1].size/1048576)..'M)<br>\n')
+        end
+      end
+    end
+  end
+  ct:Append('<br></dd>\n'
+    ..'    <dt>プロテクト</dt><dd>\n'
+    ..'<form method="POST" action="recinfodesc.html?id='..v.id..'"><div>\n'
+    ..'<input type="hidden" name="ctok" value="'..CsrfToken()..'">\n'
+    ..'<input type="hidden" name="protect" value="'..(v.protectFlag and 'n' or 'y')..'">\n'
+    ..'<button type="submit">'..(v.protectFlag and 'Yes' or 'No')..'</button></div></form></dd>\n'
+    ..(#v.programInfo>0 and '    <dt>番組情報</dt><dd>\n'..v.programInfo:gsub('\r?\n', '<br>\n')..'</dd>\n' or '')
+    ..(#v.errInfo>0 and '    <dt>エラーログ</dt><dd>\n'..v.errInfo:gsub('\r?\n', '<br>\n')..'</dd>\n' or '')
+    ..'    <dt>-</dt><dd>\n'
+    ..'<form method="POST" action="recinfodesc.html?id='..v.id..'"><div>\n'
+    ..'<input type="hidden" name="ctok" value="'..CsrfToken()..'">\n'
+    ..'<input type="hidden" name="del" value="y">\n'
+    ..'<button type="submit">削除</button></div></form></dd>\n'
+    ..'  </dl>\n')
+end
+
+ct:Append([=[
+</div>
+<div id="footer">
+  <a href="recinfo.html">録画済み一覧</a>
+</div>
+</body>
+</html>
+]=])
+ct:Finish()
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))

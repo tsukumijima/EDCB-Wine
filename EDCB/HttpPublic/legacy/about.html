@@ -1,0 +1,68 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+ct:Append([=[
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>EDCB Legacy WebUIについて - EDCB</title>
+</head>
+<body>
+<h1>EDCB Legacy WebUIについて</h1>
+<div id="main">
+  <p>
+    EDCBの操作をブラウザから行うことができます。このWebUIではJavaScript(メディア再生や字幕表示を除く)やCookieは使用しません。<br>
+    このWebUIでは公開フォルダ(HttpPublic)にないファイルには原則アクセスしません。
+  </p><p>
+    EDCBの「録画保存フォルダ」を公開フォルダ配下(公開フォルダ直下のvideoフォルダを推奨)に設定すれば、リンク表示などの追加機能を利用できます。
+  </p><p>
+    番組表などにはEDCBの「EPG取得対象サービス」でチェックされたサービスのみ表示します。
+  </p><p>
+    <a href="showlog.lua?c=8192&amp;t=d">デバッグ出力</a>や<a href="index.html">メニュー</a>のシステムスタンバイ機能はデフォルトで無効化しています。<br>
+    必要に応じてutil.luaの定数定義を編集して有効にしてください。
+  </p><p>
+    トランスコード機能(xcodeボタン)や視聴機能(viewボタン)を利用する場合は、ffmpegなどのトランスコーダーとtsreadex.exeとをEDCB直下のToolsフォルダに用意してください。<br>
+    既定ではHLS再生が有効なのでtsmemseg.exeも必要です。<br>
+    後述のデータ放送の表示にはpsisiarc.exeも必要です。<br>
+    また、必要に応じてutil.luaの定数定義を編集してください。<br>
+    ブラウザの制限により自動再生されないことがあるので、その場合は再生画面をクリックやタップしてください。
+  </p><p>
+    視聴機能を利用する場合は、EpgDataCap_Bonなどの「TCP送信先」にSrvPipeを追加しておく必要があります。<br>
+    予約一覧にあるviewボタンは起動済みのEpgDataCap_Bonなどに接続して視聴するものです。<br>
+    リスト番組表にあるviewボタンはNetworkTVモードによりEpgDataCap_Bonなどを起動して視聴するものです。<br>
+    NetworkTVモードでは「視聴に使用するBonDriver」をEpgTimerSrv設定で指定しておく必要があります。
+  </p><p>
+    HLS再生時や<a href="https://github.com/xtne6f/b24tovtt">b24tovtt</a>出力のWebVTTが配置されたメディアファイル再生時は、<a href="https://github.com/monyone/aribb24.js">aribb24.js</a>による字幕表示ができます。<br>
+    字幕つき全画面表示は再生画面の左上隅あたりをクリックやタップしてください。
+  </p><p>
+    トランスコード時や視聴時、<a href="https://github.com/xtne6f/psisiarc">psisiarc</a>出力の.pscファイルが配置されたメディアファイル再生時は、<a href="https://github.com/otya128/web-bml">web-bml</a>によるデータ放送の表示ができます。<br>
+    ※指定サービス対象データに「データカルーセルを含める」必要があります。
+  </p><p>
+    トランスコード時や視聴時、TVTestのNicoJKプラグインのログや実況の表示ができます。おもに録画用アプリをTVTestにしている人向けの機能です。<br>
+    再生画面の中央やや下あたりをマウスオーバーやタップすると実況コメントを入力できます。
+  </p><p>
+    tsreadex.exeを"edcbnosuspend.exe"という名前でコピーしてToolsフォルダに用意すると、<a href="index.html">メニュー</a>に「録画後動作を抑制」ボタンが現れます。<br>
+    このedcbnosuspend.exeをEpgTimerSrv設定の「録画後動作の抑制条件」に指定しておくことで録画後動作を一時的に抑制することができます。<br>
+    ※edcbnosuspend.exeは単に起動させておくだけの何もしないプロセスです。
+  </p><p>
+    スクリプトはLua 5.2を使用しています。<a href="https://www.lua.org/manual/5.2/">Lua 5.2 Reference Manual</a> (<a href="http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html">有志による日本語訳</a>)<br>
+    EDCBによる追加機能はDocument/Readme_Mod.txtの「Lua edcbグローバル変数の仕様」を参照してください。
+  </p><p>
+    無保証です。セキュリティに気をつけてください。スクリプトの改変、再配布などすべて自由です。
+  </p><p>
+    スクリプト作成などにあたって特に<a href="https://github.com/EMWUI/EDCB_Material_WebUI">EDCB Material WebUI</a>を参考にしています。<br>
+    トランスコード機能は「<a href="http://nana2.sarashi.com/">Tvmaid</a> MAYA ストリーミング設定」や<a href="https://github.com/Chinachu/Chinachu">Chinachu</a>や<a href="https://github.com/tsukumijima/TVRemotePlus">TVRemotePlus</a>を参考にしました。
+  </p>
+</div>
+<div id="footer">
+  <a href="index.html">メニュー</a>
+</div>
+</body>
+</html>
+]=])
+ct:Finish()
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))

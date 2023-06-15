@@ -1,0 +1,38 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+ct:Append([=[
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>番組詳細 - EDCB</title>
+</head>
+<body>
+<h1>番組詳細</h1>
+<div id="main">
+  <dl>
+]=])
+
+onid,tsid,sid,startTime=GetVarPastEventID(mg.request_info.query_string,'id')
+
+edcb.htmlEscape=15
+et=edcb.EnumEventInfoArchive({{onid=onid,tsid=tsid,sid=sid}}, {startTime=os.date('!*t',startTime), durationSecond=1})
+if et and #et~=0 then
+  ct:Append('    <dt>番組情報</dt><dd>\n'..ConvertProgramText(et[1]):gsub('\r?\n','<br>\n')..'</dd>\n')
+end
+
+ct:Append([=[
+  </dl>
+</div>
+<div id="footer">
+  <a href="epg.html">番組表</a> <a href="epglist.html?id=]=]..onid..'-'..tsid..'-'..sid..[=[#now">リスト番組表</a>
+</div>
+</body>
+</html>
+]=])
+ct:Finish()
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))
