@@ -1,53 +1,91 @@
 
 # EDCB-Wine
 
-Windows 向け予約録画ソフトである [EDCB](https://github.com/tkntrec/EDCB) を、Wine / Xfce / VNC / noVNC を組み合わせて Linux 上で動作させ、ブラウザからデスクトップ環境を操作できるようにするための Docker コンテナです。
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/f36daa56-4dfd-47ca-bc7c-350a5ff8c154)
+
+**Windows 向けの予約録画ソフトである [EDCB](https://github.com/tkntrec/EDCB) を、[Wine](https://www.winehq.org/) を使って Linux 上で動作させるための Docker Compose 構成一式です。**  
+
+事前に Docker コンテナ上に Xfce / X11VNC / noVNC をセットアップしているため、**ブラウザから Xfce の軽量 Linux デスクトップにリモートアクセスし、すぐに EpgTimerSrv の各種設定や EpgDataCap_Bon でのチャンネルスキャンを行えます。**
+
+さらに [EDCB Material WebUI (EMWUI)](https://github.com/EMWUI/EDCB_Material_WebUI) を組み込んでいるため、**ブラウザから EDCB の設定・予約・録画などを行えます。**  
+また、**[KonomiTV](https://github.com/tsukumijima/KonomiTV) のバックエンドとしても利用できることを確認済みです。**
+
+「Wine 使うってゲテモノじゃね？」と感じる方もいるかもしれませんが（私も試作するまではそう思っていました…）、若干の注意点こそあるものの、**魔法のように安定して動作します。**
+
+Core i5-9400 の環境では常時 CPU 使用率が 5% 以下で、メモリ使用量も 500MB 以下と、デスクトップ環境まで入っている割にはかなり軽量と言えると思います。  
+このリポジトリでは設定や動作確認用にデスクトップ環境を用意していますが、EDCB は（設定を除けば）デスクトップ環境がなくても EpgTimerNW や EDCB Material WebUI からリモート操作が可能なため、デスクトップ環境をオミットすれば、より軽量なコンテナにできるはずです。
+
+**予約録画も単発予約・EPG 予約ともに問題なく動作することを確認済みです。**  
+まだ長期テストはできていませんが、**十分実用に耐えうるレベルだと思います。**
 
 ## Usage
-
-まだ作ったばかりでちゃんと書けていませんが、一応動かす方法を載せておきます。
 
 ### 1. 動作確認環境
 
 - Ubuntu 20.04 LTS
-  - Docker コンテナに完全に環境を閉じ込めているので、他の Linux でも動くはず
+  - Wine 環境は Docker コンテナに完全に封じ込めていてホストマシンの環境には依存しないため、ほかの Linux でも動くはず
 - Docker v24.0.2 or later
 - Docker Compose v2.18.1 or later
-- Windows 版 BonDriverProxyEx
-  - 私が [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) で公開しているビルドを利用
-  - Linux 版の [BonDriverProxyEx](https://github.com/u-n-k-n-o-w-n/BonDriverProxy_Linux) でもおそらく動くと思うが、上記ビルドが HaijinW 版なので、BonDriver_Proxy_T/S.dll を差し替える必要がある可能性が高そう
-  - 「Wine からチューナーを操作できないなら、Linux 側ホストに立てた BonDriverProxy か何かを使えばええやん」という発想なので、BonDriver_Mirakurun とかでもいけると思う
+- Mirakurun v3.9.0-rc.4
 
+EDCB を動作させている Wine 環境からは直接 Linux のホストマシンで動作しているチューナーハードにアクセスできないため、Mirakurun or mirakc / BonDriver_mirakc を併用し、ホストマシンのチューナーを Docker の仮想 NIC 越しに利用する構成となっています。  
+そのため、ホストマシン上で Mirakurun or mirakc が稼働していることが前提となります。
+
+> **Note**  
+> BonDriver_mirakc は BonDriver_Mirakurun の上位互換のようで、Mirakurun でも問題なく動作します (Mirakurun でのみ動作確認済み) 。  
+> BonDriver_mirakc に限らず、チューナーをネットワーク越しに利用する仮想 BonDriver であればなんでも使えるはずです。
 
 ## 2. 事前準備
 
-EDCB フォルダに既に EDCB のバイナリと設定ファイル諸々が含まれているので、example.ini を ini にコピーして適宜パスを編集してください。  
-一応編集しなくても GUI から設定できるとは思いますが…。
+```bash
+$ git clone https://github.com/tsukumijima/EDCB-Wine.git
+$ cd EDCB-Wine
+```
 
-Wine の環境からは、EDCB は `Z:\EDCB` にマウントされています。  
-また、ホストマシンの rootfs は `Z:\host-rootfs` に全公開されているので、そこから適宜 HDD のマウントパスなどを指定すれば、そこに録画を保存できます。
+EDCB の動作環境一式 (EDCB Material WebUI 含む) 既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。
 
-## 3. Docker イメージのビルド
+Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (コンテナ側 Linux: `/EDCB`) としてマウントされています。  
+ファイル内容はデスクトップ環境内のファイルマネージャーから確認できます。
+
+ホストマシンのルートファイルシステムは `Z:\host-rootfs` (コンテナ側 Linux: `/host-rootfs`) にマウントされています。  
+たとえばホストマシン側の録画フォルダが `/mnt/hdd-record/TV-Record` にある場合、EpgTimerSrv や EpgDataCap_Bon の設定 UI で `Z:\host-rootfs\mnt\hdd-record\TV-Record` を指定すれば、EDCB で録画した録画ファイルをホストマシンの録画フォルダに保存できます。
+
+> **Warning**  
+> `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にしてしまうと、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
+
+## 3. Docker イメージのビルド・コンテナの起動
+
+以下のコマンドを実行して Docker イメージをビルドし、コンテナを起動します。
     
 ```bash
 $ docker compose up -d --build
 ```
 
-## 4. EDCB にアクセス
+### 4. EDCB の設定
 
-ブラウザで `http://<ホストマシンのIPアドレス>:6510` にアクセスすると、noVNC による Docker 環境内のデスクトップが表示されます。  
-この Xfce のデスクトップ環境は、EDCB のほかには日本語入力 (Ctrl + Space で切り替え) 用の Fcitx5-mozc・ファイルマネージャー・タスクマネージャー・設定アプリ以外は何も入っておらず、最低限 EpgTimerSrv の設定 UI と EpgDataCap_Bon を実行できる環境としています。
+ブラウザで `http://<ホストマシンのIPアドレス>:6510` にアクセスすると、Docker コンテナ内で動作している EDCB-Wine 環境のデスクトップ画面を操作できます。
 
-なお、EpgTimer に関しては、Wine-mono を使えばおそらく動作すると思われるものの、
+この Xfce のデスクトップ環境は、軽量化のため EDCB のほかには日本語入力用の Fcitx5-mozc 、ファイルマネージャー、タスクマネージャー、ターミナル、設定アプリ以外は一切インストールされていません。最低限 EpgTimerSrv (設定画面含む) と EpgDataCap_Bon を実行・操作できる環境となっています。
+
+> **Note**  
+> 英数字と日本語の入力切り替えは、`Ctrl + Space` で行えます。  
+> おそらく noVNC 側の問題で全角/半角キーが反応しないため、IME の切り替えはこの方法で行ってください。
+
+
+-----
+
+なお、EpgTimer に関しては、Wine-mono を使えば動作はすると思われるものの、
 
 - EpgTimerNW により Windows マシンからリモート操作可能なこと
 - EMWUI により Web ブラウザから操作可能なこと
 - Wine-mono を入れると Docker イメージサイズがかなり膨らむことが予想されたこと
+- さすがに Wine だと重そうなこと
 
-から、対応を見送っています。
+を考慮し、対応を見送りました。
 
-ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、EDCB Material WebUI (EMWUI) の Web 画面が表示されます。  
-動作は通常の EMWUI と同様です。
+## 5. EDCB Material WebUI にアクセス
+
+ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、EDCB Material WebUI の Web 画面が表示されます。
 
 ## License
 
