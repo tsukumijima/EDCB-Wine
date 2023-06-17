@@ -22,8 +22,9 @@ Core i5-9400 の環境では常時 CPU 使用率が 5% 以下で、メモリ使�
 
 ### 1. 動作確認環境
 
-- Ubuntu 20.04 LTS
+- Ubuntu 20.04 LTS (x64)
   - Wine 環境は Docker コンテナに完全に封じ込めていてホストマシンの環境には依存しないため、ほかの Linux でも動くはず
+  - Wine を使っている関係で、arm64 ではおそらく動作しない
 - Docker v24.0.2 or later
 - Docker Compose v2.18.1 or later
 - Mirakurun v3.9.0-rc.4
