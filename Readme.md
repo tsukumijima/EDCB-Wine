@@ -117,7 +117,8 @@ EpgTimerSrv と EpgDataCap_Bon の動作確認と UI 操作が行える、最低
 録画フォルダ設定は EpgTimerSrv と共通 (`Common.ini`) なので、ここで設定する必要はありません（もちろんここでやっても問題はありません）。  
 それ以外の設定で、もし必要なものがあれば適宜設定してください。
 
-**まずはチャンネルスキャンが必要です。** まず BonDriver_mirakc.dll がちゃんと開けることを確認してから、チャンネルスキャンボタンからチャンネルスキャンを行ってください。  
+**まずはチャンネルスキャンが必要です。**  
+まず BonDriver_mirakc.dll がちゃんと開けることを確認してから、チャンネルスキャンボタンからチャンネルスキャンを行ってください。  
 チャンネルスキャンが行われていないと、EpgTimerSrv で BonDriver が正常に認識されません。
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1a36664e-22be-4192-aa6d-32cc4c0ef68a)
