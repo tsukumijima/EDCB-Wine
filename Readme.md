@@ -42,7 +42,10 @@ $ git clone https://github.com/tsukumijima/EDCB-Wine.git
 $ cd EDCB-Wine
 ```
 
-EDCB の動作環境一式 (EDCB Material WebUI 含む) 既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。
+EDCB の動作環境一式 (EDCB Material WebUI 含む) 既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。  
+
+> **Note**  
+> 同梱の EDCB は [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて公開している EDCB のビルド済みアーカイブのうち、EDCB-230326 (64bit) をベースに Wine 環境では不要 or 動作しないファイルを除外・調整したものになります。
 
 Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (コンテナ側 Linux: `/EDCB`) としてマウントされています。  
 ファイル内容はデスクトップ環境内のファイルマネージャーから確認できます。
@@ -53,24 +56,71 @@ Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:
 > **Warning**  
 > `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にしてしまうと、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
 
+`EDCB/` フォルダには、
+
+- `Common.example.ini`
+- `EpgDataCap_Bon.example.ini`
+- `EpgTimerSrv.example.ini`
+
+の3つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに調整したもの）。  
+コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、個人的にはこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。
+
+```bash
+$ cp EDCB/Common.example.ini EDCB/Common.ini
+$ cp EDCB/EpgDataCap_Bon.example.ini EDCB/EpgDataCap_Bon.ini
+$ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
+```
+
+> **Note**  
+> このサンプル設定ファイルでは、ホスト側の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-Record/RecordInfo` に作成されているものとしています。  
+> ini をコピーした後に手動で編集するか、コンテナ起動後に EpgTimerSrv の設定 UI から各自の録画環境にあわせて変更してください。
+
+> **Note**  
+> もし一から設定を行う場合、デフォルトでは EDCB Material WebUI は動作しないほか、KonomiTV のバックエンドとしても利用できません。   
+> EpgTimerSrv の設定 UI から、手動でネットワーク接続や HTTP サーバー機能を有効にする必要があります。
+
 ### 3. Docker イメージのビルド・コンテナの起動
 
 以下のコマンドを実行して Docker イメージをビルドし、コンテナを起動します。
-    
+
+> **Note**  
+> ビルド後の Docker イメージのサイズは 4.5GB ほどあります。  
+> Wine と Xfce の動作環境が入っている関係で若干大きめです（これでも頑張って減らした方…）。
+
 ```bash
 $ docker compose up -d --build
 ```
 
+ビルドが完了すると、すぐに EpgTimerSrv (EpgTimer Service) が起動します。  
+EpgTimerSrv は、Docker コンテナの起動中は常時起動されるように設定されています。
+
+> **Note**  
+> デスクトップ画面のタスクトレイから EpgTimerSrv を終了すると、Supervisor の `autorestart` 設定により、すぐに EpgTimerSrv が起動されます。  
+> EpgTimerSrv への設定変更を即座に適用したい場合に、Docker コンテナを再起動することなく設定変更を適用できるため便利です。
+
 ### 4. EDCB の設定
+
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1a36664e-22be-4192-aa6d-32cc4c0ef68a)
 
 ブラウザで `http://<ホストマシンのIPアドレス>:6510` にアクセスすると、Docker コンテナ内で動作している EDCB-Wine 環境のデスクトップ画面を操作できます。
 
-この Xfce のデスクトップ環境は、軽量化のため EDCB のほかには日本語入力用の Fcitx5-mozc 、ファイルマネージャー、タスクマネージャー、ターミナル、設定アプリ以外は一切インストールされていません。最低限 EpgTimerSrv (設定画面含む) と EpgDataCap_Bon を実行・操作できる環境となっています。
+この Xfce のデスクトップ環境は、軽量化のため EDCB のほかには日本語入力用の Fcitx5-mozc 、ファイルマネージャー、タスクマネージャー、ターミナル、設定アプリ以外は一切インストールされていません。  
+EpgTimerSrv と EpgDataCap_Bon の動作確認と UI 操作が行える、最低限の環境となっています。
 
 > **Note**  
-> 英数字と日本語の入力切り替えは、`Ctrl + Space` で行えます。  
+> 英数字と日本語の入力切り替えは、`Ctrl (Control) + Space` で行えます。  
 > おそらく noVNC 側の問題で全角/半角キーが反応しないため、IME の切り替えはこの方法で行ってください。
 
+EpgTimerSrv の設定 UI は、画面右上のタスクトレイを右クリック → `[システム]` → `[Srv 設定]` から表示できます。
+
+ステップ 2 で事前にサンプル設定ファイルをコピーしてある場合は、録画保存フォルダ / 録画情報保存フォルダのみ変更してください。  
+サンプル設定ファイルで既にある程度設定を済ませてあるため、それ以外の設定変更はおそらく不要です（適宜お好みで調整してください）。
+
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/361a65fe-df8f-4648-bf54-feb348fad89d)
+
+デスクトップ左側の EpgDataCap_Bon のアイコンをクリックすると、EDCB の録画アプリである EpgDataCap_Bon を起動できます。  
+録画フォルダ設定は EpgTimerSrv と共通 (`Common.ini`) なので、ここで設定する必要はありません。  
+それ以外の設定で、もし必要なものがあれば適宜設定してください。
 
 -----
 
@@ -85,7 +135,16 @@ $ docker compose up -d --build
 
 ### 5. EDCB Material WebUI にアクセス
 
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
+
 ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、EDCB Material WebUI の Web 画面が表示されます。
+
+基本操作は Windows での EDCB Material WebUI と同じです。  
+ただし、テレビのリモート視聴 / 録画ファイルのストリーミングのみ、Wine 環境では FFmpeg がまともに動作しないため、あえて動作しない状態にしています。
+
+> **Note**  
+> 前述の通り、EDCB-Wine で起動した EDCB は KonomiTV のバックエンドとしても利用できます。  
+> テレビのライブストリーミングでは代わりに [KonomiTV](https://github.com/tsukumijima/KonomiTV) を利用することをおすすめします。録画視聴機能は鋭意開発中…。
 
 ## License
 
