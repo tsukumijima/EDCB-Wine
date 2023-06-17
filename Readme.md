@@ -10,10 +10,11 @@
 さらに [EDCB Material WebUI (EMWUI)](https://github.com/EMWUI/EDCB_Material_WebUI) を組み込んでいるため、**ブラウザから EDCB の設定・予約・録画などを行えます。**  
 また、**[KonomiTV](https://github.com/tsukumijima/KonomiTV) のバックエンドとしても利用できることを確認済みです。**
 
-「Wine 使うってゲテモノじゃね？」と感じる方もいるかもしれませんが（私も試作するまではそう思っていました…）、若干の注意点こそあるものの、**魔法のように安定して動作します。**
+「Wine 使うってゲテモノじゃね？」と感じる方もいるかもしれませんが（私も試作するまではそう思っていました…）、若干の注意点こそあるものの、**魔法のように安定して動作します。**  
+EDCB のチューナーバックエンドとして Mirakurun / mirakc を利用する構成になっているため、すでに Mirakurun + EPGStation 環境を構築済みの方でも比較的簡単に導入できるはずです。
 
 Core i5-9400 の環境では常時 CPU 使用率が 5% 以下で、メモリ使用量も 500MB 以下と、デスクトップ環境まで入っている割にはかなり軽量と言えると思います。  
-このリポジトリでは設定や動作確認用にデスクトップ環境を用意していますが、EDCB は（設定を除けば）デスクトップ環境がなくても EpgTimerNW や EDCB Material WebUI からリモート操作が可能なため、デスクトップ環境をオミットすれば、より軽量なコンテナにできるはずです。
+このリポジトリでは設定や動作確認向けにブラウザから操作可能なデスクトップ環境を用意していますが、EDCB は（設定を除けば）デスクトップ環境がなくても EpgTimerNW や EDCB Material WebUI からリモート操作が可能なため、デスクトップ環境をオミットすれば、より軽量なコンテナにできるはずです。
 
 **予約録画も単発予約・EPG 予約ともに問題なく動作することを確認済みです。**  
 まだ長期テストはできていませんが、**十分実用に耐えうるレベルだと思います。**
@@ -22,15 +23,15 @@ Core i5-9400 の環境では常時 CPU 使用率が 5% 以下で、メモリ使�
 
 ### 1. 動作確認環境
 
-- Ubuntu 20.04 LTS (x64)
+- Ubuntu 20.04 LTS (Architecture: x64)
   - Wine 環境は Docker コンテナに完全に封じ込めていてホストマシンの環境には依存しないため、ほかの Linux でも動くはず
-  - Wine を使っている関係で、arm64 ではおそらく動作しない
+  - Wine を使っている関係で、ARM 環境ではおそらく動作しない (間違いなく遅いだろうけど QEMU を使えばいけるかも？)
 - Docker v24.0.2 or later
 - Docker Compose v2.18.1 or later
 - Mirakurun v3.9.0-rc.4
 
-EDCB を動作させている Wine 環境からは直接 Linux のホストマシンで動作しているチューナーハードにアクセスできないため、Mirakurun or mirakc / BonDriver_mirakc を併用し、ホストマシンのチューナーを Docker の仮想 NIC 越しに利用する構成となっています。  
-そのため、ホストマシン上で Mirakurun or mirakc がセットアップ済みで、すでに稼働していることが前提となります。
+EDCB の動作環境である Wine からは直接 Linux ホストマシン上に接続されているチューナーハードにアクセスできないため、**Mirakurun or mirakc / BonDriver_mirakc を併用し、ホストマシン上のチューナーを Mirakurun / mirakc 経由で利用する構成となっています。**  
+そのため、**ホストマシン上で Mirakurun or mirakc がセットアップ済みで、すでに稼働していることが前提となります。**
 
 > **Note**  
 > BonDriver_mirakc は BonDriver_Mirakurun の上位互換のようで、Mirakurun でも問題なく動作します (Mirakurun でのみ動作確認済み) 。  
@@ -43,19 +44,20 @@ $ git clone https://github.com/tsukumijima/EDCB-Wine.git
 $ cd EDCB-Wine
 ```
 
-EDCB の動作環境一式 (EDCB Material WebUI 含む) 既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。  
+EDCB の動作環境一式 (EDCB Material WebUI 含む) は既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。  
 
 > **Note**  
-> 同梱の EDCB は [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて公開している EDCB のビルド済みアーカイブのうち、EDCB-230326 (64bit) をベースに Wine 環境では不要 or 動作しないファイルを除外・調整したものになります。
+> 同梱の EDCB は [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて公開している EDCB のビルド済みアーカイブのうち、EDCB-230326 (64bit) をベースに Wine 環境では不要 or 動作しないファイルを除外・調整したものになります。  
+> 本来 Git のバージョン管理にバイナリファイルを含めるのはあまり良くないのですが、EDCB を構成する各ファイルを適切にバージョン管理したかったため、このような形になりました。
 
-Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (コンテナ側 Linux: `/EDCB`) としてマウントされています。  
+Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (Docker コンテナ側: `/EDCB`) としてマウントされています。  
 ファイル内容はデスクトップ環境内のファイルマネージャーから確認できます。
 
-ホストマシンのルートファイルシステムは `Z:\host-rootfs` (コンテナ側 Linux: `/host-rootfs`) にマウントされています。  
-たとえばホストマシン側の録画フォルダが `/mnt/hdd-record/TV-Record` にある場合、EpgTimerSrv や EpgDataCap_Bon の設定 UI で `Z:\host-rootfs\mnt\hdd-record\TV-Record` を指定すれば、EDCB で録画した録画ファイルをホストマシンの録画フォルダに保存できます。
+ホストマシンのルートファイルシステムは `Z:\host-rootfs` (Docker コンテナ側: `/host-rootfs`) にマウントされています。  
+たとえばホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` にある場合、EpgTimerSrv や EpgDataCap_Bon の設定 UI で `Z:\host-rootfs\mnt\hdd-record\TV-Record` を指定すれば、EDCB で録画した録画ファイルをホストマシンの HDD に永続保存できます。
 
 > **Warning**  
-> `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にしてしまうと、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
+> `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にすると、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
 
 `EDCB/` フォルダには、
 
@@ -63,8 +65,7 @@ Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:
 - `EpgDataCap_Bon.example.ini`
 - `EpgTimerSrv.example.ini`
 
-の3つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに調整したもの）。  
-コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、個人的にはこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。
+の3つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに調整したもの）。
 
 ```bash
 $ cp EDCB/Common.example.ini EDCB/Common.ini
@@ -72,100 +73,135 @@ $ cp EDCB/EpgDataCap_Bon.example.ini EDCB/EpgDataCap_Bon.ini
 $ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
 ```
 
+サンプル設定ファイルは（フォルダパスなど環境依存の項目以外は）追加の設定変更なしでそのまま予約録画ができるように調整されています。  
+コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、**こだわりがなければこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。**
+
 > **Note**  
-> このサンプル設定ファイルでは、ホスト側の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-Record/RecordInfo` に作成されているものとしています。  
-> ini をコピーした後に手動で編集するか、コンテナ起動後に EpgTimerSrv の設定 UI から各自の録画環境にあわせて変更してください。
+> このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-Record/RecordInfo` に作成されている前提になっています。  
+> `*.ini` をコピーした後に手動で設定ファイルを編集するか、コンテナ起動後に EpgTimerSrv の設定 UI を開き、それぞれ録画環境にあわせて変更してください。
 
 > **Note**  
 > もし一から設定を行う場合、デフォルトでは EDCB Material WebUI は動作しないほか、KonomiTV のバックエンドとしても利用できません。   
-> EpgTimerSrv の設定 UI から、手動でネットワーク接続や HTTP サーバー機能を有効にする必要があります。
+> EpgTimerSrv の設定 UI から、手動でネットワーク接続や HTTP サーバー機能を有効にする必要があります。  
+> EDCB を KonomiTV のバックエンドとして利用する場合は、[KonomiTV の当該ドキュメント](https://github.com/tsukumijima/KonomiTV#edcb-%E3%81%AE%E4%BA%8B%E5%89%8D%E8%A8%AD%E5%AE%9A) も参照してください。
 
 ### 3. Docker イメージのビルド・コンテナの起動
 
-以下のコマンドを実行して Docker イメージをビルドし、コンテナを起動します。
+**以下のコマンドを実行して Docker イメージをビルドし、コンテナを起動します。**
 
 > **Note**  
-> ビルド後の Docker イメージのサイズは 4.5GB ほどあります。  
+> **ビルド後の Docker イメージのサイズは 4.5GB 弱あります。**  
 > Wine と Xfce の動作環境が入っている関係で若干大きめです（これでも頑張って減らした方…）。
 
 ```bash
 $ docker compose up -d --build
 ```
 
-ビルドが完了すると、すぐに EpgTimerSrv (EpgTimer Service) が起動します。  
+**ビルドが完了すると、すぐに EpgTimerSrv (EpgTimer Service) が起動します。**  
 EpgTimerSrv は、Docker コンテナの起動中は常時起動されるように設定されています。
 
 > **Note**  
-> デスクトップ画面のタスクトレイから EpgTimerSrv を終了すると、Supervisor の `autorestart` 設定により、すぐに EpgTimerSrv が起動されます。  
-> EpgTimerSrv への設定変更を即座に適用したい場合に、Docker コンテナを再起動することなく設定変更を適用できるため便利です。
+> デスクトップ画面のタスクトレイから EpgTimerSrv を終了すると、Supervisor の `autorestart` 設定により、再度 EpgTimerSrv が起動されます。  
+> この挙動を利用すると、EpgTimerSrv の設定変更を即座に反映したい場合に、Docker コンテナを再起動することなくすぐに変更後の設定を反映できます。
+
+> **Warning**  
+> `docker compose stop` で Docker コンテナを停止する際、EpgTimerSrv は強制終了されてしまうようです (終了後にデバッグログが突然途切れる) 。  
+> 本当は Graceful に終了できる状態が理想ではありますが、Wine 上で稼働していることもあり難しそうです。  
+> 本来は行われるであろう終了時処理もおそらく行われないため、Docker コンテナを停止する際は、可能であれば一度タスクトレイから EpgTimerSrv を終了してから `docker compose stop` を実行した方がより安全だと思われます。
 
 ### 4. EDCB の設定
 
-ブラウザで `http://<ホストマシンのIPアドレス>:6510` にアクセスすると、Docker コンテナ内で動作している EDCB-Wine 環境のデスクトップ画面を操作できます。
+ブラウザで `http://<ホストマシンのIPアドレス>:6510` にアクセスすると、**Docker コンテナ内で稼働している Xfce のデスクトップ画面を Web ブラウザから操作できます！**  
+別途操作側のデバイスに VNC や RDP のクライアントをインストールする必要はありません。
 
-この Xfce のデスクトップ環境は、軽量化のため EDCB のほかには日本語入力用の Fcitx5-mozc 、ファイルマネージャー、タスクマネージャー、ターミナル、設定アプリ以外は一切インストールされていません。  
-EpgTimerSrv と EpgDataCap_Bon の動作確認と UI 操作が行える、最低限の環境となっています。
+この Xfce のデスクトップ環境は軽量化のため、EDCB 本体（ホストマシン側からマウントされている）、日本語入力用の Fcitx5-mozc 、ファイルマネージャー、タスクマネージャー、ターミナル、設定 UI 以外のアプリは一切インストールされていません。  
+EpgTimerSrv / EpgDataCap_Bon の動作確認と UI 操作が行える、最低限の GUI 環境となっています。
 
 > **Note**  
 > 英数字と日本語の入力切り替えは、`Ctrl (Control) + Space` で行えます。  
-> おそらく noVNC 側の問題で全角/半角キーが反応しないため、IME の切り替えはこの方法で行ってください。
+> おそらく noVNC 側の問題で全角/半角キーが反応しないため、IME 切り替えはこの方法で行ってください。
 
-![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/361a65fe-df8f-4648-bf54-feb348fad89d)
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/8785f152-363e-4364-82c5-0a2b49572988)
 
-デスクトップ左側の EpgDataCap_Bon のアイコンをクリックすると、EDCB の録画アプリである EpgDataCap_Bon を起動できます。
+デスクトップ左側の EpgDataCap_Bon のアイコンをクリックすると、**EDCB の録画用アプリである EpgDataCap_Bon を起動できます！**  
+初回起動時は「チャンネル情報の読み込みに失敗しました」と表示されますが、これからチャンネルスキャンを行うため問題ありません。
 
-録画フォルダ設定は EpgTimerSrv と共通 (`Common.ini`) なので、ここで設定する必要はありません（もちろんここでやっても問題はありません）。  
-それ以外の設定で、もし必要なものがあれば適宜設定してください。
+> **Note**  
+> EpgTimerSrv (EpgTimer Service) が予約録画タスクを司る EDCB のコアとなるデーモンプロセスで、EpgDataCap_Bon は録画開始時や EPG 取得時に自動で EpgTimerSrv から起動・制御される、録画用アプリという位置づけです。  
+> このため、受信確認・チャンネルスキャン・設定以外では、EpgDataCap_Bon を手動で起動する機会はあまりありません。  
+> EpgDataCap_Bon 単体で録画することもできますが、EDCB Material WebUI or EpgTimerNW (後述) から行う方が便利で安全です。  
+> EpgTimer は EpgTimerSrv サーバーのフロントエンド (C# 製) で、テレビ予約録画サーバーとしての EDCB は EpgTimerSrv と EpgDataCap_Bon だけで動作します。
 
 **まずはチャンネルスキャンが必要です。**  
-まず BonDriver_mirakc.dll がちゃんと開けることを確認してから、チャンネルスキャンボタンからチャンネルスキャンを行ってください。  
+まず BonDriver_mirakc.dll をちゃんとオープンできる (Signal の値が表示される) ことを確認してから、チャンネルスキャンボタンからチャンネルスキャンを行ってください。  
 チャンネルスキャンが行われていないと、EpgTimerSrv で BonDriver が正常に認識されません。
+
+> **Note**  
+> EpgDataCap_Bon で BonDriver_mirakc.dll のオープンに失敗した場合は、ホストマシン上で Mirakurun / mirakc が起動していないか、何らかの要因でうまく接続できていない可能性が高いです。  
+> ホストマシン上で稼働しているサーバーとの通信を容易にするために `network_mode` を `host` に設定しているため、Docker コンテナからだけアクセスできなくなることはないはずです。  
+> デスクトップ環境のターミナルから `wget -O - http://localhost:40772/api/version` と実行して、Mirakurun / mirakc にアクセスできるか確認してみてください。
+
+> **Note**  
+> 通常の BonDriver では受信感度としてそのまま dB 値が表示されますが、BonDriver_mirakc では Mirakurun / mirakc の構造上受信感度が取得できないため、代わりに TS ストリームのビットレート (Mbps 単位) が表示されるようです。
+
+チャンネルスキャンが終わったら、EpgDataCap_Bon の設定 UI を確認しておきましょう。  
+録画フォルダ設定は EpgTimerSrv と共通 (`Common.ini`) なので、ここで設定する必要はありません (もちろんここでやっておいても OK) 。  
+
+ステップ 2 で事前にサンプル設定ファイルをコピーしてある場合は、特に設定変更をしなくてもそのまま動作するはずです。  
+もし変更したい項目があれば適宜設定してください。
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1a36664e-22be-4192-aa6d-32cc4c0ef68a)
 
-EpgTimerSrv の設定 UI は、画面右上のタスクトレイを右クリック → `[システム]` → `[Srv 設定]` から表示できます。
+**EpgTimerSrv の設定 UI は、画面右上のタスクトレイを右クリック → `[システム]` → `[Srv設定]` から表示できます！**
 
 ステップ 2 で事前にサンプル設定ファイルをコピーしてある場合は、録画保存フォルダ / 録画情報保存フォルダと、BonDriver_mirakc.dll に割り当てるチューナー数、EPG 取得に利用するチューナー数のみ、環境に合わせて変更してください。  
-サンプル設定ファイルで既にある程度設定を済ませてあるため、それ以外の設定変更はおそらく不要です（適宜お好みで調整してください）。
+サンプル設定ファイルで既にある程度設定を済ませてあるため、それ以外の設定変更は基本的に不要です（適宜お好みで調整してください）。
 
 > **Warning**  
-> 既知の問題として、BonDriver_mirakc は EDCB からはあたかもマルチチューナーであるかのように振る舞いますが、実際に利用できるチューナーはマルチチューナーでない場合があります。  
-> たとえば Mirakurun で PX-W3U4 (地上波×2・BS/CS×2) を使っている場合、EDCB には BonDriver_mirakc が4チューナー持っていると登録する必要がありますが、実際に地デジ×4 or BS/CS×4 で同時に録画することはできません。  
-> このケースでは、EPG 取得に利用するチューナー数は、全体のチューナー数の半分にする必要があります。さもないと、EPG 取得時にチューナーが実際に利用できるチューナー数を超えてしまい、EPG 取得に失敗します。  
-> また、地デジチューナーを3本以上同時に利用しようとした場合に EDCB 側でチューナー不足の把握ができない問題もあります。  
-> この問題は、BonDriver_mirakc を地上波専用、BS/CS 専用の2つに分けるように改造すれば回避できると考えられます。
+> 既知の問題として、**BonDriver_mirakc は EDCB から見るとあたかもマルチチューナーであるかのように振る舞いますが、実際に利用できるチューナーはマルチチューナーでない場合に注意が必要です。**  
+> たとえば **Mirakurun と PX-W3U4 (地上波×2・BS/CS×2) を利用している環境では EpgTimerSrv のチューナー数設定で BonDriver_mirakc.dll に 4 チューナーを割り当てる必要がありますが、実際に 地デジ×4 or BS/CS×4 で同時に録画することはできません。**  
+> このケースでは、**EPG 取得に利用するチューナー数は、地上波と BS/CS を合わせた総チューナー数の半分にする必要があります (PX-W3U4 であれば 2 本) 。**  
+> さもないと、EPG 取得時に一斉に BS チャンネルを開こうとするなど、実際に利用できるチューナー数を超えてしまい、EPG 取得に失敗します。  
+> また、PX-W3U4 で例えると 地デジ or BS/CS のどちらか片方で同じ時間帯に 3 チャンネル以上録画予約を追加した際（当然チューナー不足になる）、EpgTimerSrv 側でチューナー不足になることを事前に把握できない問題もあります。  
+> この問題は、BonDriver_mirakc を地上波専用・BS/CS 専用の 2 つの BonDriver に分割できるオプションを追加する改造を行えば回避できると考えられます。
 
-設定が終わったら、**一旦 EpgTimerSrv をタスクトレイから終了してください。** 上記の通りすぐに再起動され、変更した設定が反映されます。
+設定が終わったら、**一旦 EpgTimerSrv をタスクトレイから終了してください。**  
+前述したようにすぐに EpgTimerSrv が再度起動され、変更後の設定が反映されます。
 
 -----
 
 なお、EpgTimer に関しては、Wine-mono を使えば動作はすると思われるものの、
 
-- EpgTimerNW により Windows マシンからリモート操作可能なこと
-- EMWUI により Web ブラウザから操作可能なこと
-- Wine-mono を入れると Docker イメージサイズがかなり膨らむことが予想されたこと
-- さすがに Wine だと重そうなこと
+- EDCB Material Web UI を使えば、EpgTimer で使える機能の多くがブラウザ上から PC・スマホを問わず利用できること
+- EpgTimerNW を使えば、Windows PC からリモートで EDCB-Wine 上で起動している EpgTimerSrv を操作できること
+- Wine-mono を入れることで、Docker イメージサイズがかなり膨らむことが予想されたこと
+- さすがに Wine だと動作が重そうなこと
 
 を考慮し、対応を見送りました。
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1b308f3b-991e-47f9-9646-823e62380b09)
 
-Windows PC から EpgTimer でリモート操作したい場合は、[DTV-Builds](https://github.com/tsukumijima/DTV-Builds) で公開している EDCB のビルド済みアーカイブから EpgTimer.exe を入手したあと、EpgTimerNW.exe にリネームして、適当な場所に新規作成したフォルダに移動してください。  
+Windows PC から EpgTimer を使い EpgTimerSrv をリモート操作したい場合は、[DTV-Builds](https://github.com/tsukumijima/DTV-Builds) で公開している EDCB のビルド済みアーカイブから EpgTimer.exe を入手したあと、EpgTimerNW.exe にリネームして、適当な場所に新規作成したフォルダに移動してください。  
 
-その後 EpgTimerNW.exe を起動すると、EDCB-Wine 上で起動している EpgTimerSrv にリモート接続できます。
+その後 EpgTimerNW.exe を起動すると、**EDCB-Wine で稼働している EpgTimerSrv にリモート接続できます！**  
+EpgTimerSrv のサーバー設定以外は、Windows 上で EDCB を使う際と同じように予約操作を行えます。  
+番組改編期などで大量の EPG 予約追加/削除を一括で行いたいケースでは、EDCB Material WebUI より EpgTimerNW の方が便利です。
 
 ### 5. EDCB Material WebUI にアクセス
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
 
-ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、EDCB Material WebUI の Web 画面が表示されます。
+ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、**EDCB Material WebUI の Web 画面が表示されます！**
 
 基本操作は Windows での EDCB Material WebUI と同じです。  
 ただし、テレビのリモート視聴 / 録画ファイルのストリーミングのみ、Wine 環境では FFmpeg がまともに動作しないため、あえて動作しない状態にしています。
 
+EpgTimer でできることの大半は EDCB Material WebUI でも行えます。  
+番組表からの予約追加や検索など、EPGStation 同様かそれ以上の操作性で、PC・スマホを問わず利用できるのが特徴です。
+
 > **Note**  
-> 前述の通り、EDCB-Wine で起動した EDCB は KonomiTV のバックエンドとしても利用できます。  
-> テレビのライブストリーミングでは代わりに [KonomiTV](https://github.com/tsukumijima/KonomiTV) を利用することをおすすめします。録画視聴機能は鋭意開発中…。
+> 前述のとおり、**EDCB-Wine で稼働している EDCB は KonomiTV のバックエンドとしても利用できます。**  
+> テレビのライブストリーミングでは、代わりに [KonomiTV](https://github.com/tsukumijima/KonomiTV) を利用することをおすすめします（手前味噌）。録画視聴機能は鋭意開発中なのでしばしお待ちを…。
 
 ## License
 
