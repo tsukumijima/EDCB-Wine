@@ -11,7 +11,8 @@ key={onid=onid, tsid=tsid, sid=sid}
 edcb.htmlEscape=15
 if onair then
   --放送中
-  now=os.time()
+  -- now=os.time()
+  now=os.time()+9*60*60 -- force JST
   if not startTime then
     startTime=os.date('*t',now-24*3600)
   end

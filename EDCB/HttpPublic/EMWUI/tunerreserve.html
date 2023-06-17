@@ -84,7 +84,7 @@ for i,v in ipairs(edcb.GetTunerReserveAll()) do
     ..(sidePanel and 'data-onid="'..w.onid..'" data-tsid="'..w.tsid..'" data-sid="'..w.sid..'" data-eid="'..w.eid
                   or 'data-href="reserveinfo.html?id='..w.reserveID..'&amp;tuner=&amp;page='..pageIndex)..'">\n'
     ..' <td class="flag mdl-data-table__cell--non-numeric" data-toggle="1" data-id="'..w.reserveID..'" data-ctok="'..CsrfToken('setreserve')..'"><span'
-    ..(os.time(w.startTime)>os.time() and '><label for="reserve'..w.reserveID..'" class="mdl-switch mdl-js-switch"><input type="checkbox" id="reserve'..w.reserveID..'" class="mdl-switch__input"'..(w.recSetting.recMode~=5 and ' checked' or '')..'></label>'
+    ..(os.time(w.startTime)>os.time()+9*60*60 and '><label for="reserve'..w.reserveID..'" class="mdl-switch mdl-js-switch"><input type="checkbox" id="reserve'..w.reserveID..'" class="mdl-switch__input"'..(w.recSetting.recMode~=5 and ' checked' or '')..'></label>'
                                        or ' class="recmark">')
     ..'</span>\n <td class="date mdl-data-table__cell--non-numeric">'..FormatTimeAndDuration(w.startTime, w.durationSecond)
     ..'\n <td class="title mdl-data-table__cell--non-numeric mdl-cell--4-col-phone">'..ConvertTitle(w.title)
@@ -94,7 +94,7 @@ for i,v in ipairs(edcb.GetTunerReserveAll()) do
     ..'\n <td class="priority"><span class="inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet"><i class="material-icons">priority_high</i></span>'..w.recSetting.priority
     ..'\n')
   end
-  
+
   table.insert(ctt, '</tbody>\n')
 
 end

@@ -89,7 +89,7 @@ end
 ct={
   title='番組表',
   css=epgcss(),
-  js=epgjs(pageTime-timezone,(NOW and '$(function(){$(".station>div>div:first-child").each(function(){'..(date==0 and 'end($(this), true);});jump();' or 'end($(this));});')..'setInterval("line()", 1000);});' or ''),(NOW and pageTime+(interval*3600)-timezone or false)),
+  js=epgjs(pageTime-32400,(NOW and '$(function(){$(".station>div>div:first-child").each(function(){'..(date==0 and 'end($(this), true);});jump();' or 'end($(this));});')..'setInterval("line()", 1000);});' or ''),(NOW and pageTime+(interval*3600)-timezone or false)),
   progres=true,
   macro=sidePanel,
   dialog={{
@@ -126,7 +126,7 @@ if 0<CH_COUNT then
 
   if CH_COUNT<n then
     ct.subheader=ct.subheader..'<div id="page" class="pulldown dividers navigation__item mdl-color-text--primary">ページ '..(pageIndex+1)..'</div>\n'
-    
+
     ct.menu=ct.menu..'<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="page">\n'
     for i=0, math.ceil(n/CH_COUNT-1) do
       ct.menu=ct.menu..'<li><a class="mdl-menu__item'..(pageIndex==i and ' mdl-color-text--accent' or '" href="epg.html'..hrefGene({chpage=i}))..'">ページ '..(i+1)..'</a></li>\n'
@@ -211,7 +211,7 @@ ct.side='<input type="checkbox" class="hidden" id="a">\n'
   ..'<label class="drop-down mdl-navigation__link" for="a">サービス</label>\n'
   ..'<ul>\n'
 
-WIDE={ 
+WIDE={
   --少し拡幅する
   ['32391-32391-23608']=true, --MX
 }

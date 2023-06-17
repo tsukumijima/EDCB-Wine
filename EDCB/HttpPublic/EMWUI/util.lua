@@ -397,7 +397,7 @@ end
 function ConvertEpgInfoText2(onidOrEpg, tsidOrRecInfo, sid, eid)
   local s, v, End = '', (type(onidOrEpg)=='table' and onidOrEpg or edcb.SearchEpg(onidOrEpg, tsidOrRecInfo, sid, eid)), true
   if v then
-    local now, startTime = os.time(), os.time(v.startTime)
+    local now, startTime = os.time()+9*60*60, os.time(v.startTime)
     End=v.durationSecond and startTime+v.durationSecond<now
     s='<div>\n<h4 class="mdl-typography--title'..(now<startTime-30 and ' start_'..math.floor(startTime/10) or '')..'">'
     if v.shortInfo then
@@ -484,7 +484,7 @@ function RecSettingTemplate(rs)
       s=s..'\n<option value="'..i..'"'..(rs.priority==i and ' selected' or '')..'>'..i
     end
     s=s..'\n</select></div></div>\n'
-    
+
     ..'<div class="mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing">\n<div class="mdl-cell mdl-cell--3-col mdl-cell--2-col-tablet mdl-cell--middle">ぴったり（？）録画</div>\n'
     ..'<div class="mdl-layout-spacer mdl-cell--hide-desktop mdl-cell--hide-tablet"></div>\n'
     ..'<div><label for="pittariFlag" class="mdl-switch mdl-js-switch"><input id="pittariFlag" class="mdl-switch__input" type="checkbox" name="pittariFlag" value="1"'..(rs.pittariFlag and ' checked' or '')..'><span class="mdl-switch__label"></span></label></div></div>\n'

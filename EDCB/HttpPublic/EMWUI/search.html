@@ -198,7 +198,7 @@ ct.main=ct.main..'<div class="mdl-grid">\n<form id="search" method="POST" action
   ..(not key.search and '<input type="hidden" name="id" value="'..(mg.get_var(post, 'id') or dataID)..'">\n' or '')
 
   ..(parseAndKey(key.andKey).disableFlag and '<input type="hidden" name="disableFlag" checked>\n' or '')
- 
+
   ..'</div></div>\n'
   ..'<div class="mdl-card__actions mdl-card--border">'
   ..(key.search and '<button class="show_dialog mdl-button mdl-js-button mdl-button--primary" type="button" data-dialog="#dialog_preset">プリセット保存</button>\n' or '')
@@ -215,7 +215,7 @@ for i,v in ipairs(b) do
   if v.startTime then
     startTime=os.time(v.startTime)
     endTime=v.durationSecond and startTime+v.durationSecond or startTime
-    if os.time()<=endTime then
+    if os.time()+9*60*60<=endTime then
       table.insert(a, v)
     end
   end
@@ -280,7 +280,7 @@ if #a>0 then
                                or 'href="epginfo.html?onid='..v.onid..'&amp;tsid='..v.tsid..'&amp;sid='..v.sid..'&amp;eid='..v.eid..(pageIndex~=0 and '&amp;page='..pageIndex or '')..(autopage~=0 and '&amp;autopage='..autopage or ''))..'">\n'
 
       ..' <td class="flag mdl-data-table__cell--non-numeric'..(r and rs.recMode==5 and ' disabled' or '')..(r and '" data-toggle="1" data-id="'..r.reserveID or '" data-oneclick="1')..'" data-onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'" data-eid="'..v.eid..'" data-ctok="'..CsrfToken('setreserve')..'"><span'
-      ..(r and os.time(v.startTime)>os.time() and '><label for="reserve'..r.reserveID..'" class="mdl-switch mdl-js-switch"><input type="checkbox" id="reserve'..r.reserveID..'" class="search mdl-switch__input"'..(rs.recMode~=5 and ' checked' or '')..'></label>'
+      ..(r and os.time(v.startTime)>os.time()+9*60*60 and '><label for="reserve'..r.reserveID..'" class="mdl-switch mdl-js-switch"><input type="checkbox" id="reserve'..r.reserveID..'" class="search mdl-switch__input"'..(rs.recMode~=5 and ' checked' or '')..'></label>'
                                                or ' class="search '..(r and 'recmark">' or 'add mdl-button mdl-js-button mdl-button--fab mdl-button--colored"><i class="material-icons">add</i>'))
 
       ..'</span>\n <td class="date mdl-data-table__cell--non-numeric">'..FormatTimeAndDuration(v.startTime)

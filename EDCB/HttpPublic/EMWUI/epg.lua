@@ -11,7 +11,8 @@ local sp=UserAgentSP()
 DEF_CH_COUNT=sp and 15 or DEF_CH_COUNT
 DEF_interval=sp and 13 or 25
 
-now=os.time()
+-- now=os.time()
+now=os.time()+9*60*60 -- force JST
 timezone=now-os.time(os.date('!*t',now))
 
 CATEGORY={

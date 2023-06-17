@@ -18,7 +18,8 @@ if onid and tsid and sid then
   end
 end
 
-now=os.time()
+-- now=os.time()
+now=os.time()+9*60*60 -- force JST
 a=edcb.EnumEventInfo({{onid=(onid or st.onid), tsid=(tsid or st.tsid), sid=(sid or st.sid)}}, {startTime=os.date('*t',now-6*3600), durationSecond=24*3600}) or {}
 table.sort(a, function(a,b) return os.time(a.startTime)<os.time(b.startTime) end)
 x={eid=0, startTime=os.date('*t',now)}

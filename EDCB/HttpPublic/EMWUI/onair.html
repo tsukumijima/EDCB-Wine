@@ -36,7 +36,8 @@ for i,v in ipairs(NetworkIndex()) do
   NetworkList[i]={}
 end
 
-now=os.time()
+-- now=os.time()
+now=os.time()+(9-1)*60*60 -- force JST (なぜか8時間じゃないとうまく現在時刻にならない…)
 
 for i,v in ipairs(CustomServiceList()) do
   if (oneseg or not v.partialReceptionFlag) then
