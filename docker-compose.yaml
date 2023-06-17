@@ -5,14 +5,15 @@ services:
     container_name: EDCB-Wine
     build:
       context: .
-    restart: unless-stopped
+    # OS 起動時にコンテナを自動起動する
+    restart: always
+    # ネットワークをホスト側と共有する
+    # 標準の bridge モード (仮想ネットワーク) だと localhost との通信が面倒
+    network_mode: host
+    # Xfce のデスクトップ環境はなぜか特権モードでないと正常に動作しない
     privileged: true
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    ports:
-      - '4510:4510'
-      - '5510:5510'
-      - '6510:6510'
+    # ボリュームのマウント設定
+    # /host-rootfs/ はコンテナ内の EDCB からホストマシン上のファイルを読み書きするために必要
     volumes:
       - type: bind
         source: './EDCB/'

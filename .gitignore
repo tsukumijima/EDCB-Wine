@@ -8,6 +8,7 @@ EDCB/Setting/*
 EDCB/WinSCard*
 !EDCB/Bitrate.ini
 !EDCB/BonCtrl.ini
+!EDCB/BonDriver/*.ini
 !EDCB/Setting/HttpPublic.ini
 !EDCB/**/*.example.ini
 Xfce/.cache/

@@ -12,6 +12,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         fonts-noto-cjk \
+        ncdu \
         language-pack-ja \
         locales \
         python3 \
@@ -84,8 +85,9 @@ USER ubuntu
 WORKDIR /hone/ubuntu/
 
 # Wine に必要な環境変数を設定
+# DISPLAY=:88 は、Xvfb で起動した X サーバーのディスプレイ番号 (ホストと被らなさそうな番号に設定している)
 ENV HOME=/hone/ubuntu \
-    DISPLAY=:0 \
+    DISPLAY=:88 \
     WINEARCH=win64 \
     WINEPREFIX=/hone/ubuntu/.wine64
 
