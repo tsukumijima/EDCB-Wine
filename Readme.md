@@ -132,9 +132,11 @@ EpgTimerSrv / EpgDataCap_Bon の動作確認と UI 操作が行える、最低�
 > EpgDataCap_Bon 単体で録画することもできますが、EDCB Material WebUI or EpgTimerNW (後述) から行う方が便利で安全です。  
 > EpgTimer は EpgTimerSrv サーバーのフロントエンド (C# 製) で、テレビ予約録画サーバーとしての EDCB は EpgTimerSrv と EpgDataCap_Bon だけで動作します。
 
-**まずはチャンネルスキャンが必要です。**  
-まず BonDriver_mirakc.dll をちゃんとオープンできる (Signal の値が表示される) ことを確認してから、チャンネルスキャンボタンからチャンネルスキャンを行ってください。  
-チャンネルスキャンが行われていないと、EpgTimerSrv で BonDriver が正常に認識されません。
+**まずはチャンネルスキャンを行いましょう。**  
+チャンネルスキャンが行われていないと、EpgTimerSrv は配置された BonDriver を認識できません。  
+
+BonDriver_mirakc.dll をちゃんとオープンできる (EpgDataCap_Bon のウインドウに Signal の値が表示される) ことを確認してから、チャンネルスキャンを開始してください。  
+地デジ・BS・CS のすべてのチャンネルをスキャンするため、スキャンの完了までには10分ほど時間がかかります。
 
 > **Note**  
 > EpgDataCap_Bon で BonDriver_mirakc.dll のオープンに失敗した場合は、ホストマシン上で Mirakurun / mirakc が起動していないか、何らかの要因でうまく接続できていない可能性が高いです。  
