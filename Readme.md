@@ -35,7 +35,7 @@ EDCB を動作させている Wine 環境からは直接 Linux のホストマ�
 > BonDriver_mirakc は BonDriver_Mirakurun の上位互換のようで、Mirakurun でも問題なく動作します (Mirakurun でのみ動作確認済み) 。  
 > BonDriver_mirakc に限らず、チューナーをネットワーク越しに利用する仮想 BonDriver であればなんでも使えるはずです。
 
-## 2. 事前準備
+### 2. 事前準備
 
 ```bash
 $ git clone https://github.com/tsukumijima/EDCB-Wine.git
@@ -53,7 +53,7 @@ Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:
 > **Warning**  
 > `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にしてしまうと、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
 
-## 3. Docker イメージのビルド・コンテナの起動
+### 3. Docker イメージのビルド・コンテナの起動
 
 以下のコマンドを実行して Docker イメージをビルドし、コンテナを起動します。
     
@@ -83,7 +83,7 @@ $ docker compose up -d --build
 
 を考慮し、対応を見送りました。
 
-## 5. EDCB Material WebUI にアクセス
+### 5. EDCB Material WebUI にアクセス
 
 ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、EDCB Material WebUI の Web 画面が表示されます。
 
