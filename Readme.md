@@ -133,6 +133,12 @@ EpgTimerSrv の設定 UI は、画面右上のタスクトレイを右クリッ�
 
 を考慮し、対応を見送りました。
 
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1b308f3b-991e-47f9-9646-823e62380b09)
+
+Windows PC から EpgTimer でリモート操作したい場合は、[DTV-Builds](https://github.com/tsukumijima/DTV-Builds) で公開している EDCB のビルド済みアーカイブから EpgTimer.exe を入手したあと、EpgTimerNW.exe にリネームして、適当な場所に新規作成したフォルダに移動してください。  
+
+その後 EpgTimerNW.exe を起動すると、EDCB-Wine 上で起動している EpgTimerSrv にリモート接続できます。
+
 ### 5. EDCB Material WebUI にアクセス
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
