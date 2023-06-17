@@ -152,6 +152,9 @@ BonDriver_mirakc.dll をちゃんとオープンできる (EpgDataCap_Bon のウ
 ステップ 2 で事前にサンプル設定ファイルをコピーしてある場合は、特に設定変更をしなくてもそのまま動作するはずです。  
 もし変更したい項目があれば適宜設定してください。
 
+> **Note**  
+> まったく CS や BS の有料放送を視聴しない場合は、EpgDataCap_Bon の設定 → `[EPG取得設定]` / `[サービス表示設定]` から、BS / CS の有料放送を EPG 取得の対象から除外しておくと便利です。
+
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1a36664e-22be-4192-aa6d-32cc4c0ef68a)
 
 **EpgTimerSrv の設定 UI は、画面右上のタスクトレイを右クリック → `[システム]` → `[Srv設定]` から表示できます！**
@@ -170,7 +173,11 @@ BonDriver_mirakc.dll をちゃんとオープンできる (EpgDataCap_Bon のウ
 設定が終わったら、**一旦 EpgTimerSrv をタスクトレイから終了してください。**  
 前述したようにすぐに EpgTimerSrv が再度起動され、変更後の設定が反映されます。
 
------
+> **Warning**  
+> まれにですが、デスクトップをクリックしてもソフトが起動しなくなったり、起動した場合も × ボタンで終了できなくなったりすることがあります。  
+> 同時に x11vnc が謎に再起動していることが関係しているようですが、今のところ原因は不明です。  
+> なお、この問題が起きた際の EDCB への動作の影響はありません。UI こそフリーズしたような状態になりますが、予約録画や EPG 取得は正常に行われます。  
+> 発生間隔はランダムため、まったく発生しないこともあります。もしこの問題が発生した際は、Docker コンテナを再起動してみてください（その際、録画中でないかをしっかり確認してください）。
 
 なお、EpgTimer に関しては、Wine-mono を使えば動作はすると思われるものの、
 
@@ -191,9 +198,22 @@ EpgTimerSrv のサーバー設定以外は、Windows 上で EDCB を使う際と
 
 ### 5. EDCB Material WebUI にアクセス
 
-![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/1aa0ff34-a83f-4bd0-b6c3-9fed72be1631)
 
 ブラウザで `http://<ホストマシンのIPアドレス>:5510/EMWUI/epg.html` にアクセスすると、**EDCB Material WebUI の Web 画面が表示されます！**
+
+初回起動時のみ EPG 取得が全く行われていないため、番組表には何も表示されていないか、不完全な状態になっています。  
+サンプル設定ファイルでは、毎日 06:15 と 18:15 に定期的に EPG 取得を行うように設定しています。
+
+<img width="50%" src="https://github.com/tsukumijima/EDCB-Wine/assets/39271166/56420d4f-5b14-4107-b1e4-0708f19d08bc"><br>
+
+**すぐに EPG 取得を行いたい場合は、番組表ページ右上のメニューから「EPG 取得」をクリックしてください。**  
+EPG 取得対象に設定したすべてのチャンネルの EPG 取得が開始されます。
+
+EPG 取得完了にはかなり時間がかかります。  
+**EPG 取得が完了すると、すべてのチャンネルの番組表が表示されるはずです。**
+
+![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
 
 基本操作は Windows での EDCB Material WebUI と同じです。  
 ただし、テレビのリモート視聴 / 録画ファイルのストリーミングのみ、Wine 環境では FFmpeg がまともに動作しないため、あえて動作しない状態にしています。
