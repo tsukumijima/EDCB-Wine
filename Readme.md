@@ -39,6 +39,11 @@ EDCB の動作環境である Wine からは直接 Linux ホストマシン上�
 
 ### 2. 事前準備
 
+#### 2.1. EDCB-Wine のリポジトリのクローン
+
+まず、このリポジトリをクローンしてください。  
+配置フォルダはどこでも構いませんが、一般的には `/opt/` 以下が無難だと思います。
+
 ```bash
 $ git clone https://github.com/tsukumijima/EDCB-Wine.git
 $ cd EDCB-Wine
@@ -53,11 +58,44 @@ EDCB の動作環境一式 (EDCB Material WebUI 含む) は既にこのリポジ
 Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (Docker コンテナ側: `/EDCB`) としてマウントされています。  
 ファイル内容はデスクトップ環境内のファイルマネージャーから確認できます。
 
-ホストマシンのルートファイルシステムは `Z:\host-rootfs` (Docker コンテナ側: `/host-rootfs`) にマウントされています。  
-たとえばホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` にある場合、EpgTimerSrv や EpgDataCap_Bon の設定 UI で `Z:\host-rootfs\mnt\hdd-record\TV-Record` を指定すれば、EDCB で録画した録画ファイルをホストマシンの HDD に永続保存できます。
+#### 2.2. ホストマシンに接続されている HDD のマウント設定
+
+ホストマシンに接続されている HDD を Wine 環境内の EDCB から利用するには、別途設定が必要です。
+
+```bash
+$ cp wine-mount.example.sh wine-mount.sh
+```
+
+`wine-mount.sh` には、ホストマシンに接続されている HDD のマウント設定を記述します。  
+`wine-mount.example.sh` からコピーして作成した `wine-mount.sh` を編集し、各自の環境に合わせて調整してください。
+
+> **Note**  
+> マウント対象のホストマシン側のフォルダは `/mnt/` 配下に配置されている必要があります。  
+> これは、Docker Compose 構成でホストマシン上の `/mnt/` を Docker コンテナ上の `/mnt/` にマウントしているためです。
+
+> **Note**  
+> `.wine64/dosdevices/` 配下に `d:` のようなドライブレターの名前のシンボリックリンクを作成することで、リンク先のフォルダを Wine 環境にマウントできる機能を利用しています。
+
+たとえば、下記の環境で Wine 環境上の D: ドライブに `/mnt/hdd-record/` をマウントする際は、`wine-mount.sh` に次のように追記します。
+
+- ホストマシンにマウントされている HDD のパス: `/mnt/hdd-record/`
+- ホストマシン上の録画フォルダ: `/mnt/hdd-record/TV-Record/`
+
+```bash
+ln -s "/mnt/hdd-record/" "d:"
+```
+
+> **Note**  
+> 複数の HDD が `/mnt/` 配下にマウントされている場合は、`wine-mount.sh` にそれぞれの HDD のマウント設定を追記してください。  
+> その際、ドライブレターが HDD 間で重複しないように注意してください。
+
+あとは EpgTimerSrv や EpgDataCap_Bon の設定 UI で `D:\TV-Record` と指定すれば、EDCB で録画した録画ファイルをホストマシン上の HDD に永続的に保存できます。  
+もちろん、`/mnt/hdd-record/` 配下のほかのフォルダにも `D:\` 以下からアクセスできます。
 
 > **Warning**  
-> `Z:\host-rootfs` 以外のフォルダに録画ファイルを保存する設定にすると、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
+> `wine-mount.sh` に記述したフォルダ以外に保存しようとすると、`docker compose down` でコンテナを停止・削除したときに録画ファイルも一緒に消えてしまうため、十分注意してください。
+
+#### 2.3. 設定ファイルのコピー
 
 `EDCB/` フォルダには、
 
@@ -77,11 +115,15 @@ $ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
 コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、**こだわりがなければこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。**
 
 > **Note**  
-> このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-RecordInfo` に作成されている前提になっています。  
-> `*.ini` をコピーした後に手動で設定ファイルを編集するか、コンテナ起動後に EpgTimerSrv の設定 UI を開き、それぞれ録画環境にあわせて変更してください。
+> このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) が `/mnt/hdd-record/TV-RecordInfo` にそれぞれ作成されている前提で作成されています。  
+> `*.ini` をコピーした後に手動で設定ファイルを編集するか、コンテナ起動後に EpgTimerSrv の設定 UI を開き、それぞれ録画環境にあわせて変更してください。  
 
 > **Note**  
-> もし一から設定を行う場合、デフォルトでは EDCB Material WebUI は動作しないほか、KonomiTV のバックエンドとしても利用できません。   
+> ホストマシン上の録画フォルダのパーミッションは、万が一の権限周りのトラブルを回避するため、777 (drwxrwxrwx) に設定することをおすすめします。  
+> 基本 755 などでも問題はないとは思いますが、念のため…。
+
+> **Note**  
+> もしサンプル設定ファイルを使わず一から設定を行う場合、デフォルトの状態では EDCB Material WebUI は動作しないほか、KonomiTV のバックエンドとしても利用できません。   
 > EpgTimerSrv の設定 UI から、手動でネットワーク接続や HTTP サーバー機能を有効にする必要があります。  
 > EDCB を KonomiTV のバックエンドとして利用する場合は、[KonomiTV の当該ドキュメント](https://github.com/tsukumijima/KonomiTV#edcb-%E3%81%AE%E4%BA%8B%E5%89%8D%E8%A8%AD%E5%AE%9A) も参照してください。
 
