@@ -1,11 +1,11 @@
 [xfdesktop-version-4.10.3+-rcfile_format]
 4.10.3+=true
 
-[/hone/ubuntu/Desktop/EpgDataCap_Bon.desktop]
+[/home/ubuntu/Desktop/EpgDataCap_Bon.desktop]
 row=2
 col=0
 
-[/hone/ubuntu]
+[/home/ubuntu]
 row=1
 col=0
 

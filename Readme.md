@@ -77,7 +77,7 @@ $ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
 コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、**こだわりがなければこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。**
 
 > **Note**  
-> このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-Record/RecordInfo` に作成されている前提になっています。  
+> このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) は `/mnt/hdd-record/TV-RecordInfo` に作成されている前提になっています。  
 > `*.ini` をコピーした後に手動で設定ファイルを編集するか、コンテナ起動後に EpgTimerSrv の設定 UI を開き、それぞれ録画環境にあわせて変更してください。
 
 > **Note**  

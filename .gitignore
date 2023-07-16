@@ -23,4 +23,5 @@ Xfce/.local/
 Xfce/.wine64/
 Xfce/.ICEauthority
 Xfce/core
+wine-mount.sh
 !.gitkeep

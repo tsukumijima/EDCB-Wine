@@ -82,22 +82,24 @@ RUN useradd -m --uid 1000 --groups sudo ubuntu && \
     echo ubuntu:ubuntu | chpasswd && \
     echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER ubuntu
-WORKDIR /hone/ubuntu/
+WORKDIR /home/ubuntu/
 
 # Wine に必要な環境変数を設定
 # DISPLAY=:88 は、Xvfb で起動した X サーバーのディスプレイ番号 (ホストと被らなさそうな番号に設定している)
-ENV HOME=/hone/ubuntu \
+ENV HOME=/home/ubuntu \
     DISPLAY=:88 \
     WINEARCH=win64 \
-    WINEPREFIX=/hone/ubuntu/.wine64
+    WINEPREFIX=/home/ubuntu/.wine64
 
 # Wine の初期化
+COPY --chmod=775 --chown=ubuntu:ubuntu ./wine-mount.sh /home/ubuntu/
 RUN winetricks settings fontsmooth=rgb && \
     wineboot && \
+    ./wine-mount.sh && \
     sudo rm -rf /tmp/*
 
 # Xfce のデスクトップ設定をコピー
-COPY --chown=ubuntu:ubuntu ./Xfce/ /hone/ubuntu/
+COPY --chown=ubuntu:ubuntu ./Xfce/ /home/ubuntu/
 
 # Supervisor の設定ファイルをコピー
 COPY ./supervisor.conf /etc/supervisor/conf.d/supervisor.conf

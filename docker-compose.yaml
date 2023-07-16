@@ -13,11 +13,12 @@ services:
     # Xfce のデスクトップ環境はなぜか特権モードでないと正常に動作しない
     privileged: true
     # ボリュームのマウント設定
-    # /host-rootfs/ はコンテナ内の EDCB からホストマシン上のファイルを読み書きするために必要
+    # /mnt/ はコンテナ内の EDCB からホストマシンに接続されている HDD にアクセスするために必要
+    # 別途 HDD を /mnt/ 以下に適切な権限でマウントしておく必要がある (トラブル回避のため 777 (drwxrwxrwx) に設定することを推奨)
     volumes:
       - type: bind
         source: './EDCB/'
         target: '/EDCB/'
       - type: bind
-        source: '/'
-        target: '/host-rootfs/'
+        source: '/mnt/'
+        target: '/mnt/'
