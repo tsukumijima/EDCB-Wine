@@ -74,7 +74,7 @@ $ cp wine-mount.example.sh wine-mount.sh
 > これは、Docker Compose 構成でホストマシン上の `/mnt/` を Docker コンテナ上の `/mnt/` にマウントしているためです。
 
 > **Note**  
-> `.wine64/dosdevices/` 配下に `d:` のようなドライブレターの名前のシンボリックリンクを作成することで、リンク先のフォルダを Wine 環境にマウントできる機能を利用しています。
+> `.wine64/dosdevices/` 配下に `d:` のようなドライブレターの名前のシンボリックリンクを配置することで、リンク先のフォルダを Wine 環境にドライブとしてマウントできる Wine の機能を利用して実装しています。
 
 たとえば、下記の環境で Wine 環境上の D: ドライブに `/mnt/hdd-record/` をマウントする際は、`wine-mount.sh` に次のように追記します。
 
