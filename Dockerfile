@@ -6,7 +6,7 @@ FROM ubuntu:22.04
 # 非対話モードを設定する (Docker ビルド中の対話プロンプトを防ぐため)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Wine 以外の必要なパッケージをインストール
+# 必要なパッケージをインストール
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
