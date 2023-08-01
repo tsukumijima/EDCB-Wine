@@ -3,10 +3,9 @@ dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
 
 ct=template({
   title='ホーム',
-  video=true,
+  --video=true,
   Scrollable=true,
-  js='<script src="js/player.js"></script>\n'
-    ..'<script src="js/library.js"></script>\n',
+  js='<script src="js/library.js"></script>\n',
 
   subheader=[=[
 <div class="path mdl-layout__tab-bar">
@@ -19,7 +18,6 @@ ct=template({
 ]=],
 
   menu=[=[
-<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="menu">
 <li class="view-grid mdl-menu__item" onclick="toggleView('grid');"><i class="material-icons">view_module</i>グリッド表示</li>
 <li class="view-list mdl-menu__item" onclick="toggleView('list');"><i class="material-icons">view_list</i>リスト表示</li>
 <li class="mdl-menu__item mdl-menu__item--full-bleed-divider" onclick="$('#subheader').toggleClass('scroll');"><i class="material-icons">search</i>検索</li>
@@ -27,11 +25,28 @@ ct=template({
 <li id="sort_date" class="mdl-menu__item" data-val="date"><i class="material-icons">access_time</i>日付順</li>
 <li id="sort" class="mdl-menu__item mdl-menu__item--full-bleed-divider"><i class="material-icons">sort</i><span id="asc">昇順</span><span id="des">降順</span></li>
 <li class="mdl-menu__item" onclick="refreshMovieList();"><i class="material-icons">refresh</i>ライブラリ更新</li>
-<li class="thumbs mdl-menu__item" data-thumbs="" data-ctok="]=]..CsrfToken('library')..[=["><i class="material-icons">photo</i>サムネ作成</li>
-</ul>
+<li class="thumbs mdl-menu__item mdl-menu__item--full-bleed-divider" data-thumbs="" data-ctok="]=]..CsrfToken('library')..[=["><i class="material-icons">photo</i>サムネ作成</li>
+<li class="ext mdl-menu__item"><label for="load_subtitles" class="mdl-layout-spacer">字幕の読み込み</label><span><label class="mdl-switch mdl-js-switch" for="load_subtitles"><input type="checkbox" id="load_subtitles" class="mdl-switch__input" checked></label></span></li>
+<li class="ext mdl-menu__item"><label for="fast" class="mdl-layout-spacer">倍速読み込み</label><span><label class="mdl-switch mdl-js-switch" for="fast"><input type="checkbox" id="fast" class="mdl-switch__input"></label></span></li>
 ]=],
 
-  main='<main class="lib-swipe mdl-layout__content">\n<div id="folder" class="library mdl-grid"></div><div id="file" class="library mdl-grid"></div>\n'
+  main=[=[
+<main id="tvcast" class="mdl-layout__content">
+<div id="movie-theater-contner"></div>
+<div class="mdl-grid list">
+<div id="main-column" class="mdl-grid--no-spacing mdl-cell mdl-cell--8-col mdl-cell--4-col-phone">
+<div id="movie-contner">]=]..player('<video id="video"></video>')..[=[</div>
+</div>
+<div id="sub-column" class="mdl-grid--no-spacing mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--4-col-phone">
+<div id="apps-contener">
+<input type="checkbox" id="apps" class="hidden">
+<div class="contener"><div class="contener">]=]..(JKRDLOG_PATH~='' and '<div id="jk-comm" class="jikkyo-comments"></div>' or '')..[=[</div></div>
+<label type="button" for="apps" class="tag mdl-chip"><span class="mdl-chip__text"><span class="material-icons">apps</span></span></label></div>
+</div>
+</div>
+<div id="folder" class="library mdl-grid"></div><div id="file" class="library mdl-grid"></div>
+]=]
+
 })
 
 mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))

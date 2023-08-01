@@ -210,7 +210,7 @@ function stop(auto){
   $('#top').addClass('is-visible');
   $('#info').removeClass('is-visible');
   hide(0);
-  $.get(']=]..PathToRoot()..[=[api/TvCast?onid=0&tsid=0&sid=0&ctok=]=]..CsrfToken('tvcast')..[=[').done(function(){
+  $.get(']=]..PathToRoot()..[=[api/TvCast?id=1-1-0&ctok=]=]..CsrfToken('tvcast')..[=[').done(function(){
     cast=false;
     $('#eventName,#title,#date,#text').text('');
     $('#top').removeClass('is-visible');
@@ -279,7 +279,7 @@ $(function(){
     }
   });
   $('.tag:first').dblclick(function(){
-    location.href='magnezio.html?subch=';
+    $('.subCH').toggleClass('hidden');
   });
 });
 </script>
@@ -295,8 +295,8 @@ for i,v in ipairs(NetworkIndex()) do
   NetworkList[i]={}
 end
 for i,v in ipairs(CustomServiceList()) do
-  if not v.partialReceptionFlag and not v.subCh then
-    table.insert(NetworkList[NetworkIndex(v)], '<div class="channel" data-onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'"><img src="'..PathToRoot()..'api/logo?onid='..v.onid..'&amp;sid='..v.sid..'"><span>'..v.service_name..'</span></div>')
+  if not v.partialReceptionFlag then
+    table.insert(NetworkList[NetworkIndex(v)], '<div class="channel'..(v.subCh and ' subCH hidden' or '')..'" data-onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'"><img src="'..PathToRoot()..'api/logo?onid='..v.onid..'&amp;sid='..v.sid..'"><span>'..v.service_name..'</span></div>')
   end
 end
 

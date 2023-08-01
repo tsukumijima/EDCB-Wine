@@ -11,14 +11,12 @@ ct={title='予約情報'}
 if r then
   recording=edcb.GetRecFilePath(r.reserveID)
 
-  ct.js=(recording and '<script src="js/player.js"></script>\n'or '')
+  ct.js='<script>$(function(){createSearchLinks(document);});</script>\n'
 
   ct.progres=r
 
   ct.macro=true
-
-  --検索等のリンクを生成
-  ct.js=ct.js..'<script>$(function(){createSearchLinks(document);});</script>\n'
+  ct.searchlinks=true
 
   epgInfo, audio=ConvertEpgInfoText2(r.onid, r.tsid, r.sid, r.eid)
   ct.main='<main class="tab-swipe mdl-layout__content">\n'
@@ -56,7 +54,7 @@ if r then
     ..'</section>\n'
 
     ..(recording and '<section class="mdl-layout__tab-panel" id="movie">\n<div class="mdl-grid mdl-grid--no-spacing">\n'
-      ..player('<video id="video" preload="none" data-path="'..PathToRoot()..'api/Movie?reid='..r.reserveID..'" data-rec="true" data-duration="'..r.durationSecond..'"></video>\n', audio)
+      ..player('<video id="video" preload="none" data-path="'..PathToRoot()..'api/Movie?reid='..r.reserveID..'" data-rec="true" data-duration="'..r.durationSecond..'"></video>\n')
       ..'</div>\n</section>\n' or '')
     ..'</div>\n'
 
@@ -75,6 +73,8 @@ if r then
        ..((#epgInfo>0 or recording) and '<a href="#recset" class="mdl-layout__tab">録画設定</a>\n' or '')
        ..(recording and '<a href="#movie" id="movie_tab" class="mdl-layout__tab">再生</a>\n' or '')
   end
+
+  if recording then ct.menu='<li class="ext mdl-menu__item"><label for="load_subtitles" class="mdl-layout-spacer">字幕の読み込み</label><span><label class="mdl-switch mdl-js-switch" for="load_subtitles"><input type="checkbox" id="load_subtitles" class="mdl-switch__input" checked></label></span></li>' end
 
 end
 

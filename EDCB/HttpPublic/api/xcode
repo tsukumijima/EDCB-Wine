@@ -5,9 +5,9 @@ dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
 
 -- 安全な(POST的でない)処理を意識するのでCSRF対策トークンは求めない
 query=mg.request_info.query_string
-fpath=mg.get_var(query,'fname')
+fpath=GetFilePath(query)
 if fpath then
-  fpath=DocumentToNativePath(fpath)
+  --fpath=DocumentToNativePath(fpath)
 end
 
 offset=GetVarInt(query,'offset',0,100) or 0
@@ -19,7 +19,7 @@ fastRate=filter and XCODE_FAST or 1
 filter=filter or (GetVarInt(query,'cinema')==1 and option.filterCinema or option.filter or '')
 hls=GetVarInt(query,'hls',1)
 hls4=GetVarInt(query,'hls4',0) or 0
-caption=hls and option.captionHls or option.captionNone or ''
+caption=hls and GetVarInt(query,'caption')==1 and option.captionHls or option.captionNone or ''
 output=hls and option.outputHls or option.output
 if hls and not (ALLOW_HLS and option.outputHls) then
   -- エラーを返す
@@ -93,7 +93,7 @@ function OpenTranscoder()
   end
   local sync=edcb.GetPrivateProfile('SET','KeepDisk',0,'EpgTimerSrv.ini')~='0'
   -- "-z"はプロセス検索用
-  cmd='"'..tsreadex..'" -z edcb-legacy-xcode -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 9 -b 1 -c 1 -u 2 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
+  cmd='"'..tsreadex..'" -z edcb-legacy-xcode -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 13 -b 5 -c 1 -u 2 -d 13 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
   if hls then
     -- 極端に多く開けないようにする
     local indexCount=#(edcb.FindFile('\\\\.\\pipe\\tsmemseg_*_00',10) or {})
@@ -127,9 +127,8 @@ function OpenPsiDataArchiver()
 end
 
 function OpenJikkyoReader(tot,nid,sid)
-  local id=GetJikkyoID(nid,sid)
-  if not id or not JKRDLOG_PATH then return nil end
-  local cmd='"'..JKRDLOG_PATH..'" -r '..(fastRate*100)..' '..id..' '..(tot+ofssec)..' 0'
+  if not JKRDLOG_PATH then return nil end
+  local cmd='"'..JKRDLOG_PATH..'" -r '..(fastRate*100)..' ns'..((NetworkType(nid)=='地デジ' and 15 or nid)*65536+sid)..' '..(tot+ofssec)..' 0'
   return edcb.io.popen('"'..cmd..'"','r')
 end
 
@@ -154,6 +153,19 @@ function ReadPsiDataChunk(f,trailerSize,trailerRemainSize)
   local trailerConsumeSize=2-(trailerRemainSize+#buf+#payload+2)%3
   buf=('='):rep(trailerRemainSize)..buf..payload..('='):rep(trailerConsumeSize)
   return buf,2+(2+#payload)%4,2+(2+#payload)%4-trailerConsumeSize
+end
+
+function ReadJikkyoChunk(f)
+  local head=f:read(80)
+  if not head or #head~=80 then return nil end
+  local payload=''
+  local payloadSize=tonumber(head:match('L=([0-9]+)'))
+  if not payloadSize then return nil end
+  if payloadSize>0 then
+    payload=f:read(payloadSize)
+    if not payload or #payload~=payloadSize then return nil end
+  end
+  return head..payload
 end
 
 function CreateHlsPlaylist(f)
