@@ -4,6 +4,7 @@ EDCB/**/*.crt
 EDCB/**/*.key
 EDCB/**/*.pem
 EDCB/**/*DebugLog*.txt
+EDCB/EpgTimerSrvNotify.log
 EDCB/Setting/*
 EDCB/WinSCard*
 !EDCB/Bitrate.ini
