@@ -100,9 +100,9 @@ ln -s "/mnt/hdd-record/" "d:"
 
 `EDCB/` フォルダには、
 
-- `Common.example.ini`
-- `EpgDataCap_Bon.example.ini`
-- `EpgTimerSrv.example.ini`
+- `Common.example.ini` (EDCB 共通設定ファイル: Shift-JIS + CRLF)
+- `EpgDataCap_Bon.example.ini` (EpgDataCap_Bon 設定ファイル: Shift-JIS + CRLF)
+- `EpgTimerSrv.example.ini` (EpgTimerSrv 設定ファイル: UTF-16LE + CRLF)
 
 の3つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに調整したもの）。
 
@@ -114,6 +114,17 @@ $ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
 
 サンプル設定ファイルは（フォルダパスなど環境依存の項目以外は）追加の設定変更なしでそのまま予約録画ができるように調整されています。  
 コンテナが起動した後に一から EpgDataCap_Bon や EpgTimerSrv の設定を行うこともできますが、**こだわりがなければこの `*.example.ini` を `*.ini` にコピーして使うことをおすすめします。**
+
+----
+
+なお、**設定ファイルを保存する際は、文字コードや改行コードに十分注意してください。**  
+誤った文字コードや改行コードで保存すると、EDCB が正常に動作しなくなる可能性があります。
+
+各設定ファイルの文字コードや改行コードは次のとおりです。ファイルごとに文字コードが異なるため特に注意が必要です。
+
+- `Common.ini` / `EpgDataCap_Bon.ini`: Shift-JIS + CRLF
+- `EpgTimerSrv.ini` / `Setting/HttpPublic.ini`: UTF-16LE + CRLF  
+- `Setting/` 配下の *.txt (予約情報ファイル、チャンネル設定ファイルなど) : UTF-8 with BOM + CRLF
 
 > **Note**  
 > このサンプル設定ファイルでは、ホストマシン上の録画フォルダが `/mnt/hdd-record/TV-Record` 、録画情報フォルダ (`*.ts.program.txt` / `*.ts.err` が保存される) が `/mnt/hdd-record/TV-RecordInfo` にそれぞれ作成されている前提で作成されています。  
@@ -260,7 +271,7 @@ EPG 取得完了にはかなり時間がかかります。
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/4f14a26c-c279-4eb5-8cab-80d1d54938de)
 
 基本操作は Windows での EDCB Material WebUI と同じです。  
-ただし、テレビのリモート視聴 / 録画ファイルのストリーミングのみ、Wine 環境では FFmpeg がまともに動作しないため、あえて動作しない状態にしています。
+ただし、テレビのリモート視聴 / 録画ファイルのストリーミングのみ、Wine 環境では Lua からの外部コマンド実行が正しく動作しない (?) ため、あえて動作しない状態にしています。
 
 EpgTimer でできることの大半は EDCB Material WebUI でも行えます。  
 番組表からの予約追加や検索など、EPGStation 同様かそれ以上の操作性で、PC・スマホを問わず利用できるのが特徴です。
