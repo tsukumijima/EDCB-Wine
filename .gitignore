@@ -10,6 +10,7 @@ EDCB/WinSCard*
 !EDCB/BonCtrl.ini
 !EDCB/BonDriver/*.ini
 !EDCB/Setting/HttpPublic.ini
+!EDCB/Setting/XCODE_OPTIONS.lua
 !EDCB/**/*.example.ini
 Xfce/.cache/
 Xfce/.config/dconf/
