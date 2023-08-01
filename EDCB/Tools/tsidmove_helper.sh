@@ -1,15 +1,15 @@
 #!/bin/bash
-echo "�\��t�@�C���Ɋ܂܂��TransportStreamID�̏���ύX���܂��B"
-echo "�`�����l���ĕ҂Ȃǂ�TransportStreamID���ύX���ꂽ�Ƃ��Ɏg���܂��B"
-echo "ChSet4.txt��ChSet5.txt�͂��炩���߃`�����l���X�L�����ȂǂōX�V���Ă��������B"
-echo "�͂��߂ɔ�j��e�X�g���s���܂��B"
+echo "予約ファイルに含まれるTransportStreamIDの情報を変更します。"
+echo "チャンネル再編などでTransportStreamIDが変更されたときに使います。"
+echo "ChSet4.txtやChSet5.txtはあらかじめチャンネルスキャンなどで更新してください。"
+echo "はじめに非破壊テストを行います。"
 read -p "Press any key to continue... " -n1 -s
 wine "$(dirname "$0")/tsidmove.exe" --dry-run
 if [ $? -eq 1 ]; then
     echo ""
     echo ""
-    echo "�e�X�g�͐���I�����܂����B���ۂɕύX���s���܂��B"
-    echo "�K�v�Ȃ�\��t�@�C�����o�b�N�A�b�v���Ă��������B"
+    echo "テストは正常終了しました。実際に変更を行います。"
+    echo "必要なら予約ファイルをバックアップしてください。"
     read -p "Press any key to continue... " -n1 -s
     wine "$(dirname "$0")/tsidmove.exe" --run
     if [ $? -eq 1 ]; then
@@ -20,6 +20,6 @@ if [ $? -eq 1 ]; then
 else
     echo ""
     echo ""
-    echo "�G���[���������܂����B�I�����܂��B"
+    echo "エラーが発生しました。終了します。"
     exit 1
 fi
