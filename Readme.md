@@ -345,7 +345,7 @@ EPG 取得に利用するチューナー数をすべて 0 にすると、EPG 取
 > `docker compose exec edcb-wine /bin/bash` でコンテナに入り、Xvfb のプロセスを kill することでも対処できます。ただし、起動中の EpgTimerSrv や EpgDataCap_Bon はいずれにせよ強制終了されてしまうようなので、コンテナを再起動するのとさほど変わりません。  
 
 > **Warning**  
-> **なお、EpgTimerSrv の UI だけフリーズしている場合は、Mirakurun への接続失敗による BonDriver_mirakc のフリーズが、EpgDataCap_Bon 経由で伝搬している可能性が高いです。**  
+> **なお、EpgTimerSrv の UI だけフリーズしている場合は、Mirakurun への接続失敗や停波中などでの受信エラーによる BonDriver_mirakc のフリーズが、EpgDataCap_Bon 経由で伝搬している可能性が高いです。**  
 > このとき、EpgDataCap_Bon はウインドウの表示処理が行われる前段階でフリーズしてしまっているため UI ウインドウが表示されていませんが、タスクマネージャーからは起動中のプロセスとして確認できます。  
 > **もしこの状況に陥った場合は、録画中でなければ Docker コンテナごと再起動することを強く推奨します。**
 
