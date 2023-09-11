@@ -3,7 +3,7 @@
 
 ![Screenshot](https://github.com/tsukumijima/EDCB-Wine/assets/39271166/0cabd704-942d-47bc-836a-c5fe68dcf23d)
 
-**Windows 向けの予約録画ソフトである [EDCB](https://github.com/tkntrec/EDCB) を、[Wine](https://www.winehq.org/) を使って Linux 上で動作させるための Docker Compose 構成一式です。**  
+**Windows 向けの予約録画ソフトである [EDCB](https://github.com/xtne6f/EDCB) を、[Wine](https://www.winehq.org/) を使って Linux 上で動作させるための Docker Compose 構成一式です。**  
 
 事前に Docker コンテナ上に Xfce / X11VNC / noVNC をセットアップしているため、**ブラウザから Xfce の軽量 Linux デスクトップにリモートアクセスし、すぐに EpgTimerSrv の各種設定や EpgDataCap_Bon でのチャンネルスキャンを行えます。**
 
@@ -126,13 +126,15 @@ ln -s "/mnt/hdd-record/" "d:"
 - `Common.example.ini` (EDCB 共通設定ファイル: Shift-JIS + CRLF)
 - `EpgDataCap_Bon.example.ini` (EpgDataCap_Bon 設定ファイル: Shift-JIS + CRLF)
 - `EpgTimerSrv.example.ini` (EpgTimerSrv 設定ファイル: UTF-16LE + CRLF)
+- `RecName/RecName_Macro.dll.example.ini` (録画ファイル名マクロ設定ファイル: UTF-16LE + CRLF)
 
-の3つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに調整したもの）。
+の4つのサンプル設定ファイルが同梱されています（私が実際に使っている設定データをベースに EDCB-Wine 向けに細かく調整したもの）。
 
 ```bash
 $ cp EDCB/Common.example.ini EDCB/Common.ini
 $ cp EDCB/EpgDataCap_Bon.example.ini EDCB/EpgDataCap_Bon.ini
 $ cp EDCB/EpgTimerSrv.example.ini EDCB/EpgTimerSrv.ini
+$ cp EDCB/RecName/RecName_Macro.dll.example.ini EDCB/RecName/RecName_Macro.dll.ini
 ```
 
 サンプル設定ファイルは（フォルダパスなど環境依存の項目以外は）追加の設定変更なしでそのまま予約録画ができるように調整されています。  
