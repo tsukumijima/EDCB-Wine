@@ -276,6 +276,7 @@ $ cp -a "EDCB/Setting/BonDriver_mirakc(BonDriver_mirakc).ChSet4.txt" "EDCB/Setti
 $ cp -a "EDCB/Setting/BonDriver_mirakc(BonDriver_mirakc).ChSet4.txt" "EDCB/Setting/BonDriver_mirakc_S(BonDriver_mirakc).ChSet4.txt"
 
 # 手動で ChSet4.txt を編集 (保存を忘れずに)
+# 前述の通り文字コード・BOM・改行コードに十分注意すること
 $ nano "EDCB/Setting/BonDriver_mirakc_T(BonDriver_mirakc).ChSet4.txt"
 $ nano "EDCB/Setting/BonDriver_mirakc_S(BonDriver_mirakc).ChSet4.txt"
 ```
