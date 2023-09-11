@@ -256,7 +256,7 @@ ChSet5.txt は、EDCB に登録された BonDriver 全体で受信可能なチ�
 > **手動で編集する際は、文字コード・BOM・改行コードの3点に十分注意してください。**  
 > 以下では便宜上 nano で編集するコマンド例を載せていますが、個人的には VS Code (Remote-SSH) での編集を推奨します。
 
-つまり、**BonDriver_mirakc_T.dll 用の ChSet4.txt には地上波のチャンネル情報のみを、BonDriver_mirakc_S.dll 用の ChSet4.txt には BS・CS のチャンネル情報のみを記述するようにすることで、当該 BonDriver を ChSet4.txt に記述したチャンネル専用にできる訳です。**
+つまり、**BonDriver_mirakc_T.dll 用の ChSet4.txt には地上波のチャンネル情報のみを、BonDriver_mirakc_S.dll 用の ChSet4.txt には BS・CS のチャンネル情報のみを記述するようにすることで、当該 BonDriver を地上波 or BS・CS 専用の BonDriver として認識されるように構成できます。**
 
 > **Warning**  
 > EpgDataCap_Bon で直接 BonDriver_mirakc_T.dll / BonDriver_mirakc_S.dll のチャンネルスキャンを行うと、地上波・BS・CS のすべてのチャンネルが当該 BonDriver 用の ChSet4.txt に記述されてしまうため、地上波専用 / 衛星専用の BonDriver として認識されなくなってしまいます。注意してください。
