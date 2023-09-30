@@ -149,8 +149,15 @@ XCODE_CHECK_CINEMA=false
 XCODE_CHECK_FAST=false
 XCODE_CHECK_CAPTION=false
 
---初期値ミュートで再生するかどうか
-VIDEO_MUTED=true
+--トランスコード時、初期値ミュートで再生するかどうか
+--自動再生が無効になるブラウザが多いため、一時停止しつづけるとタイムアウトするトランスコード時はミュートを推奨
+XCODE_VIDEO_MUTED=true
+
+--非トランスコード時、初期値ミュートで再生するかどうか
+VIDEO_MUTED=false
+
+--音量の初期値。0～1、nilのとき未指定
+VIDEO_VOLUME=nil
 
 --字幕表示のオプション https://github.com/monyone/aribb24.js#options
 ARIBB24_JS_OPTION=[=[
@@ -260,11 +267,12 @@ end
 
 function OnscreenButtonsScriptTemplete()
   return [=[
-<script src="script.js?ver=20230707"></script>
+<script src="script.js?ver=20230917"></script>
 <script>
 var vid=document.getElementById("vid");
 var vcont=document.getElementById("vid-cont");
 var vfull=document.getElementById("vid-full");
+var vwrap=document.getElementById("vid-wrap");
 var setSendComment;
 var hideOnscreenButtons;
 runOnscreenButtonsScript();
@@ -334,7 +342,7 @@ function VideoScriptTemplete()
   ..(XCODE_CHECK_CAPTION and ' checked' or '')..[=[>caption.vtt</label>
 <script src="aribb24.js"></script>
 <script>
-]=]..(VIDEO_MUTED and 'vid.muted=true;\n' or '')..[=[
+]=]..(VIDEO_MUTED and 'vid.muted=true;\n' or '')..(VIDEO_VOLUME and 'vid.volume='..VIDEO_VOLUME..';\n' or '')..[=[
 runVideoScript(]=]
   ..(ARIBB24_USE_SVG and 'true' or 'false')..',{'..ARIBB24_JS_OPTION..'},'
   ..(USE_DATACAST and 'true' or 'false')..','
@@ -350,7 +358,7 @@ function TranscodeScriptTemplete(live,params)
       ..(XCODE_CHECK_CAPTION and ' checked' or '')..'>caption</label>\n'
     ..(live and '<label><input id="cb-live" type="checkbox">live</label>\n' or '')..[=[
 <script>
-]=]..(VIDEO_MUTED and 'vid.muted=true;\n' or '')..[=[
+]=]..(XCODE_VIDEO_MUTED and 'vid.muted=true;\n' or '')..(VIDEO_VOLUME and 'vid.volume='..VIDEO_VOLUME..';\n' or '')..[=[
 runTranscodeScript(]=]
   ..(USE_DATACAST and 'true' or 'false')..','
   ..(live and USE_LIVEJK and 'true' or 'false')..','
@@ -467,7 +475,7 @@ function RecSettingTemplate(rs)
     ..'使用チューナー強制指定: <select name="tunerID"><option value="0"'..(rs.tunerID==0 and ' selected' or '')..'>自動'
   local a=edcb.GetTunerReserveAll()
   for i=1,#a-1 do
-    s=s..'<option value="'..a[i].tunerID..'"'..(a[i].tunerID==rs.tunerID and ' selected' or '')..string.format('>ID:%08X(', a[i].tunerID)..a[i].tunerName..')'
+    s=s..'<option value="'..a[i].tunerID..'"'..(a[i].tunerID==rs.tunerID and ' selected' or '')..('>ID:%08X('):format(a[i].tunerID)..a[i].tunerName..')'
   end
   s=s..'</select><br>\n'
     ..'録画後動作: <select name="suspendMode">'
@@ -581,9 +589,9 @@ end
 --時間の文字列を取得する
 function FormatTimeAndDuration(t,dur)
   dur=dur and (t.hour*3600+t.min*60+t.sec+dur)
-  return string.format('%d/%02d/%02d(%s) %02d:%02d',t.year,t.month,t.day,({'日','月','火','水','木','金','土',})[t.wday],t.hour,t.min)
-    ..(t.sec~=0 and string.format('<small>:%02d</small>',t.sec) or '')
-    ..(dur and string.format('～%02d:%02d',math.floor(dur/3600)%24,math.floor(dur/60)%60)..(dur%60~=0 and string.format('<small>:%02d</small>',dur%60) or '') or '')
+  return ('%d/%02d/%02d(%s) %02d:%02d'):format(t.year,t.month,t.day,({'日','月','火','水','木','金','土',})[t.wday],t.hour,t.min)
+    ..(t.sec~=0 and ('<small>:%02d</small>'):format(t.sec) or '')
+    ..(dur and ('～%02d:%02d'):format(math.floor(dur/3600)%24,math.floor(dur/60)%60)..(dur%60~=0 and ('<small>:%02d</small>'):format(dur%60) or '') or '')
 end
 
 --システムのタイムゾーンに影響されずに時間のテーブルを数値表現にする (timezone=0のとき概ねos.date('!*t')の逆関数)
@@ -624,6 +632,11 @@ function EdcbHtmlEscape(s)
   return edcb.Convert('utf-8','utf-8',s)
 end
 
+--符号なし整数の時計算の差を計算する
+function UintCounterDiff(a,b)
+  return (a+0x100000000-b)%0x100000000
+end
+
 --PCRまで読む
 function ReadToPcr(f,pid)
   for i=1,10000 do
@@ -634,7 +647,7 @@ function ReadToPcr(f,pid)
         local pcr=((buf:byte(7)*256+buf:byte(8))*256+buf:byte(9))*256+buf:byte(10)
         local pid2=buf:byte(2)%32*256+buf:byte(3)
         if not pid or pid==pid2 then
-          return pcr,pid2
+          return pcr,pid2,i*188
         end
       end
     end
@@ -642,15 +655,24 @@ function ReadToPcr(f,pid)
   return nil
 end
 
---PCRをもとにファイルの長さを概算する(少なめに報告するかもしれない)
+--PCRをもとにファイルの長さを概算する
 function GetDurationSec(f)
   local fsize=f:seek('end') or 0
   if fsize>1880000 and f:seek('set') then
     local pcr,pid=ReadToPcr(f)
     if pcr and f:seek('set',(math.floor(fsize/188)-10000)*188) then
-      local pcr2=ReadToPcr(f,pid)
+      local pcr2,pid2,n=ReadToPcr(f,pid)
       if pcr2 then
-        return math.floor((pcr2+0x100000000-pcr)%0x100000000/45000),fsize
+        --終端まで読む
+        local range=1880000
+        while true do
+          local dur=math.floor(UintCounterDiff(pcr2,pcr)/45000)
+          range=range-n
+          pcr2,pid2,n=ReadToPcr(f,pid)
+          if not pcr2 or range<0 then
+            return dur,fsize
+          end
+        end
       end
       --TSデータが存在する境目を見つける
       local predicted,range=math.floor(fsize/2/188)*188,fsize
@@ -664,7 +686,7 @@ function GetDurationSec(f)
       if predicted>0 and f:seek('set',predicted) then
         pcr2=ReadToPcr(f,pid)
         if pcr2 then
-          return math.floor((pcr2+0x100000000-pcr)%0x100000000/45000),predicted
+          return math.floor(UintCounterDiff(pcr2,pcr)/45000),predicted
         end
       end
     end
@@ -677,17 +699,39 @@ function SeekSec(f,sec,dur,fsize)
   if dur>0 and fsize>1880000 and f:seek('set') then
     local pcr,pid=ReadToPcr(f)
     if pcr then
-      local pos,diff=0,math.min(math.max(sec,0),dur)*45000
-      --5ループまたは誤差が2秒未満になるまで動画レートから概算シーク
-      for i=1,5 do
-        if math.abs(diff)<90000 then break end
-        pos=math.floor(math.min(math.max(pos+fsize/dur*diff/45000,0),fsize-1880000)/188)*188
-        if not f:seek('set',pos) then return false end
+      --最終目標の3秒手前を目標に6ループまたは誤差が±3秒未満になるまで動画レートから概算シーク
+      local pos,diff,rate=0,math.min(math.max(sec-3,0),dur)*45000,fsize/dur
+      for i=1,6 do
+        if math.abs(diff)<45000*3 then break end
+        local approx=math.floor(math.min(math.max(pos+rate*diff/45000,0),fsize-1880000)/188)*188
+        if not f:seek('set',approx) then return false end
         local pcr2=ReadToPcr(f,pid)
         if not pcr2 then return false end
         --移動分を差し引く
-        diff=diff+((pcr2+0x100000000-pcr)%0x100000000<0x80000000 and -((pcr2+0x100000000-pcr)%0x100000000) or (pcr+0x100000000-pcr2)%0x100000000)
-        pcr=pcr2
+        local diff2=diff+(UintCounterDiff(pcr2,pcr)<0x80000000 and -UintCounterDiff(pcr2,pcr) or UintCounterDiff(pcr,pcr2))
+        if math.abs(diff2)>=45000*3 and ((diff<0 and diff2>-diff/2) or (diff>0 and diff2<-diff/2)) then
+          --移動しすぎているのでレートを下げてやり直し
+          rate=rate/1.5
+        else
+          if (diff<0 and diff2*2<diff) or (diff>0 and diff2*2>diff) then
+            --あまり移動していないのでレートを上げる
+            rate=rate*1.5
+          end
+          pos=approx
+          pcr=pcr2
+          diff=diff2
+        end
+      end
+      if math.abs(diff)<45000*3 then
+        --最終目標まで進む
+        diff=diff+45000*3
+        local diff2=diff
+        while diff2>22500 do
+          if diff2>45000*6 then return false end
+          local pcr2=ReadToPcr(f,pid)
+          if not pcr2 then return false end
+          diff2=diff+(UintCounterDiff(pcr2,pcr)<0x80000000 and -UintCounterDiff(pcr2,pcr) or UintCounterDiff(pcr,pcr2))
+        end
       end
       return true
     end
@@ -733,7 +777,7 @@ function GetTotAndServiceID(f)
             local m=buf:byte(pointer+6)
             local s=buf:byte(pointer+7)
             tot=((mjd*24+math.floor(h/16)*10+h%16)*60+math.floor(m/16)*10+m%16)*60+math.floor(s/16)*10+s%16-
-                3506749200-math.floor((pcr2+0x100000000-pcr)%0x100000000/45000)
+                3506749200-math.floor(UintCounterDiff(pcr2,pcr)/45000)
           end
           if tot and nid and sid then
             return tot,nid,sid
