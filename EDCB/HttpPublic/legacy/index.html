@@ -25,6 +25,7 @@ ct:Append([=[
     <li><a href="showlog.lua?c=8192">情報通知ログ</a></li>
     <li><a href="showlog.lua?c=8192&amp;t=d">デバッグ出力</a></li>
     <li><a href="library.html">ライブラリ</a></li>
+    <li><a href="setting.html">設定メニュー</a></li>
   </ul>
 </div>
 <div class="aside">
@@ -66,7 +67,7 @@ ct:Append([=[
 
 post=AssertPost()
 
-edcbnosuspend=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools\\edcbnosuspend.exe'
+edcbnosuspend=EdcbModulePath()..'\\Tools\\edcbnosuspend.exe'
 if edcb.FindFile(edcbnosuspend,1) then
   onstat=post and mg.get_var(post,'nosuspend')
   if not onstat then
@@ -121,6 +122,7 @@ ct:Append([=[
 <div id="footer">
   <a href="about.html">このWebUIについて</a>
   <a href="nvram.html">NVRAM設定</a>
+  <a href="speedtest.htm">SpeedTest</a>
 </div>
 </body>
 </html>

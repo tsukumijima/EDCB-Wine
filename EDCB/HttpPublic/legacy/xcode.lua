@@ -27,8 +27,11 @@ if hls and not (ALLOW_HLS and option.outputHls) then
 end
 psidata=GetVarInt(query,'psidata')==1
 jikkyo=GetVarInt(query,'jikkyo')==1
+reload=GetVarInt(query,'reload',0)
+loadtime=reload or GetVarInt(query,'load',0) or 0
 
 function OpenTranscoder()
+  local searchName='xcode-'..mg.md5(fpath..':'..loadtime):sub(25)
   if XCODE_SINGLE then
     -- トランスコーダーの親プロセスのリストを作る
     local pids=nil
@@ -50,10 +53,13 @@ function OpenTranscoder()
         end
       end
     end
+  elseif reload then
+    -- リロード時は前回のプロセスを速やかに終わらせる
+    edcb.os.execute('wmic process where "name=\'tsreadex.exe\' and commandline like \'% -z edcb-legacy-'..searchName..' %\'" call terminate >nul')
   end
 
   -- コマンドはEDCBのToolsフォルダにあるものを優先する
-  local tools=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools'
+  local tools=EdcbModulePath()..'\\Tools'
   local tsreadex=(edcb.FindFile(tools..'\\tsreadex.exe',1) and tools..'\\' or '')..'tsreadex.exe'
   local asyncbuf=(edcb.FindFile(tools..'\\asyncbuf.exe',1) and tools..'\\' or '')..'asyncbuf.exe'
   local tsmemseg=(edcb.FindFile(tools..'\\tsmemseg.exe',1) and tools..'\\' or '')..'tsmemseg.exe'
@@ -71,6 +77,15 @@ function OpenTranscoder()
     :gsub('$FILTER',(filter:gsub('%%','%%%%')))
     :gsub('$CAPTION',(caption:gsub('%%','%%%%')))
     :gsub('$OUTPUT',(output[2]:gsub('%%','%%%%')))
+  if fastRate~=1 and option.editorFast then
+    local editor=''
+    for s in option.editorFast:gmatch('[^|]+') do
+      editor=tools..'\\'..s
+      if edcb.FindFile(editor,1) then break end
+      editor=s
+    end
+    cmd='"'..editor..'" '..option.editorOptionFast..' | '..cmd
+  end
   if XCODE_LOG then
     local log=mg.script_name:gsub('[^\\/]*$','')..'log'
     if not edcb.FindFile(log,1) then
@@ -97,7 +112,7 @@ function OpenTranscoder()
   local c5or1,stat,code=edcb.os.execute('"'..tsreadex..'" -n -1 -c 5 -h')
   c5or1=(c5or1 or (stat=='exit' and code==2)) and 5 or 1
   -- "-z"はプロセス検索用
-  cmd='"'..tsreadex..'" -z edcb-legacy-xcode -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 9 -b 1 -c '..c5or1..' -u 2 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
+  cmd='"'..tsreadex..'" -z edcb-legacy-'..searchName..' -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 9 -b 1 -c '..c5or1..' -u 2 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
   if hls then
     -- 極端に多く開けないようにする
     local indexCount=#(edcb.FindFile('\\\\.\\pipe\\tsmemseg_*_00',10) or {})
@@ -120,7 +135,7 @@ end
 
 function OpenPsiDataArchiver()
   -- コマンドはEDCBのToolsフォルダにあるものを優先する
-  local tools=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools'
+  local tools=EdcbModulePath()..'\\Tools'
   local tsreadex=(edcb.FindFile(tools..'\\tsreadex.exe',1) and tools..'\\' or '')..'tsreadex.exe'
   local psisiarc=(edcb.FindFile(tools..'\\psisiarc.exe',1) and tools..'\\' or '')..'psisiarc.exe'
   local sync=edcb.GetPrivateProfile('SET','KeepDisk',0,'EpgTimerSrv.ini')~='0'

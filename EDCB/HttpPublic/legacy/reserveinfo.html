@@ -124,14 +124,11 @@ if r then
     for i,ext in ipairs({table.unpack(MEDIA_EXTENSION_LIST),''}) do
       ff=edcb.FindFile(recFilePath..ext,1)
       if ff then
-        ct:Append((vtag==i and '<div class="video-wrapper" id="vid-wrap">'
-                     ..'<div class="data-broadcasting-browser-container"><div class="data-broadcasting-browser-content"></div></div>'
-                     ..'<div class="video-full-container arib-video-invisible-container" id="vid-full">'
-                     ..'<div class="video-container arib-video-container" id="vid-cont">'
+        ct:Append((vtag==i and VideoWrapperBegin()
                      ..'<video id="vid" autoplay playsinline controls src="' or '<a href="')
           ..(vtag~=0 and vtag~=i and 'reserveinfo.html?id='..r.reserveID..'&amp;vtag='..i or PathToRoot()..mg.url_encode(ref..ext):gsub('%%2f','/'))
           ..'">/'..EdcbHtmlEscape(ref..ext)..(vtag==i and '<track id="vid-meta" kind="metadata" src="'..PathToRoot()..mg.url_encode(ref..ext):gsub('%%2f','/'):gsub('%.[0-9A-Za-z]+$','')
-                                                ..'.vtt" type="text/vtt" default></video></div></div></div>\n'..VideoScriptTemplete() or '</a>'))
+                                                ..'.vtt" type="text/vtt" default></video>'..VideoWrapperEnd()..'\n'..VideoScriptTemplete() or '</a>'))
         if ext=='' then
           fsec,fsize=0,0
           f=edcb.io.open(recFilePath,'rb')
@@ -140,19 +137,17 @@ if r then
             f:close()
           end
           ct:Append(' ('..('%dm%02ds|'):format(math.floor(fsec/60),fsec%60)..math.floor(fsize/1048576)..'M)<br>\n'
-            ..'<form method="GET" action="'..(vtag==0 and 'xcode.lua' or 'reserveinfo.html')..'"><div>\n'
+            ..'<form id="vid-form" action="'..(vtag==0 and 'xcode.lua' or 'reserveinfo.html')..'"><div>\n'
             ..(vtag==0 and '<input type="hidden" name="fname" value="'..EdcbHtmlEscape(ref)..'">\n'
-                 or '<input type="hidden" name="id" value="'..r.reserveID..'">\n<input type="hidden" name="vtag" value="10">\n')
+                 or '<input type="hidden" name="id" value="'..r.reserveID..'">\n<input type="hidden" name="vtag" value="10">\n'
+                   ..'<input type="hidden" name="'..(vtag==10 and 're' or '')..'load" value="'..(xq.loadtime or os.time()%86400)..'">\n')
             ..'<button type="submit">xcode</button>\n'
             ..TranscodeSettingTemplete(xq,fsec)
             ..'</div></form>')
           if vtag==10 then
             src='xcode.lua?fname='..mg.url_encode(ref)..ConstructTranscodeQueries(xq)
-            ct:Append('\n<div class="video-wrapper" id="vid-wrap">'
-              ..'<div class="data-broadcasting-browser-container"><div class="data-broadcasting-browser-content"></div></div>'
-              ..'<div class="video-full-container arib-video-invisible-container" id="vid-full">'
-              ..'<div class="video-container arib-video-container" id="vid-cont">'
-              ..'<video id="vid" autoplay playsinline controls'..(ALLOW_HLS and '' or ' src="'..src..'"')..'>xcode</video></div></div></div>\n'
+            ct:Append('\n'..VideoWrapperBegin()
+              ..'<video id="vid" autoplay playsinline controls'..(ALLOW_HLS and '' or ' src="'..src..'"')..'>xcode</video>'..VideoWrapperEnd()..'\n'
               ..'<div id="vidsrc" style="display:none">'..src..'</div>\n'..TranscodeScriptTemplete(false,{ofssec=fsec*(xq.offset or 0)/100,fast=xq.fast}))
             if ALLOW_HLS then
               ct:Append(HlsScriptTemplete())
