@@ -75,7 +75,7 @@ $ cd EDCB-Wine
 EDCB の動作環境一式 (EDCB Material WebUI 含む) は既にこのリポジトリの `EDCB/` フォルダに同梱されているため、別途構築する必要はありません。  
 
 > [!NOTE]  
-> 同梱の EDCB は [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて公開している EDCB のビルド済みアーカイブのうち、EDCB-230922 (64bit) をベースに Wine 環境では不要 or 動作しないファイルを除外・調整したものになります。  
+> 同梱の EDCB は [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) にて公開している EDCB のビルド済みアーカイブのうち、EDCB-231229 (64bit) をベースに Wine 環境では不要 or 動作しないファイルを除外・調整したものになります。  
 > 本来 Git のバージョン管理にバイナリファイルを含めるのはあまり良くないのですが、EDCB を構成する各ファイルを適切にバージョン管理したかったため、このような形になりました。
 
 Wine 環境からは、EDCB の実行ファイルや設定ファイル群は `Z:\EDCB` (Docker コンテナ側: `/EDCB`) としてマウントされています。  
