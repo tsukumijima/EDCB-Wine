@@ -7,6 +7,8 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # 必要なパッケージをインストール
+## 2024年2月現在の Wine 9.x 系には EpgTimerSrv のタスクトレイ表示のコンテキストメニューのフォントがガビガビな上に日本語が豆腐化する問題がある
+## Wine は近年バージョン更新が活発で毎バージョン間の変更も大きいため、当面動作確認が確実に取れている 8.x 系に固定する
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -46,7 +48,13 @@ RUN dpkg --add-architecture i386 && \
     wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key && \
     wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources && \
     apt-get update && \
-    apt-get -y install --install-recommends winehq-stable winetricks && \
+    apt-get install -y \
+        winehq-stable=8.0.2~jammy-1 \
+        wine-stable=8.0.2~jammy-1 \
+        wine-stable-amd64=8.0.2~jammy-1 \
+        wine-stable-i386=8.0.2~jammy-1 \
+        winetricks && \
+    winetricks --self-update && \
     apt-get -y autoremove && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
