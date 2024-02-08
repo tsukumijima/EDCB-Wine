@@ -54,7 +54,6 @@ RUN dpkg --add-architecture i386 && \
         wine-stable-amd64=8.0.2~jammy-1 \
         wine-stable-i386=8.0.2~jammy-1 \
         winetricks && \
-    winetricks --self-update && \
     apt-get -y autoremove && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
