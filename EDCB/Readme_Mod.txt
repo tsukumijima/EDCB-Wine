@@ -1259,6 +1259,7 @@ Luaスクリプトのテーブル定義
   networkName:S=ネットワーク名
   epgCapFlag:B=EPGデータ取得対象かどうか
   searchFlag:B=検索時のデフォルト検索対象サービスかどうか
+  remoconID:I=リモコンキー識別
 }
 ```
 
