@@ -27,8 +27,11 @@ if hls and not (ALLOW_HLS and option.outputHls) then
 end
 psidata=GetVarInt(query,'psidata')==1
 jikkyo=GetVarInt(query,'jikkyo')==1
+reload=GetVarInt(query,'reload',0)
+loadtime=reload or GetVarInt(query,'load',0) or 0
 
 function OpenTranscoder()
+  local searchName='xcode-'..mg.md5(fpath..':'..loadtime):sub(25)
   if XCODE_SINGLE then
     -- トランスコーダーの親プロセスのリストを作る
     local pids=nil
@@ -40,9 +43,10 @@ function OpenTranscoder()
       pf:close()
     end
     -- パイプラインの上流を終わらせる
-    edcb.os.execute('wmic process where "name=\'tsreadex.exe\' and commandline like \'% -z edcb-legacy-%\'" call terminate >nul')
+    TerminateCommandlineLike('tsreadex.exe','% -z edcb-legacy-%')
     if pids then
       -- 親プロセスの終了を2秒だけ待つ。パイプラインの下流でストールしている可能性もあるので待ちすぎない
+      -- wmicコマンドのない環境では待たないがここの待機はさほど重要ではない
       for i=1,4 do
         edcb.Sleep(500)
         if i==4 or not edcb.os.execute('wmic process where "'..pids..'" get processid 2>nul | findstr /b [1-9] >nul') then
@@ -50,10 +54,13 @@ function OpenTranscoder()
         end
       end
     end
+  elseif reload then
+    -- リロード時は前回のプロセスを速やかに終わらせる
+    TerminateCommandlineLike('tsreadex.exe','% -z edcb-legacy-'..searchName..' %')
   end
 
   -- コマンドはEDCBのToolsフォルダにあるものを優先する
-  local tools=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools'
+  local tools=EdcbModulePath()..'\\Tools'
   local tsreadex=(edcb.FindFile(tools..'\\tsreadex.exe',1) and tools..'\\' or '')..'tsreadex.exe'
   local asyncbuf=(edcb.FindFile(tools..'\\asyncbuf.exe',1) and tools..'\\' or '')..'asyncbuf.exe'
   local tsmemseg=(edcb.FindFile(tools..'\\tsmemseg.exe',1) and tools..'\\' or '')..'tsmemseg.exe'
@@ -71,6 +78,15 @@ function OpenTranscoder()
     :gsub('$FILTER',(filter:gsub('%%','%%%%')))
     :gsub('$CAPTION',(caption:gsub('%%','%%%%')))
     :gsub('$OUTPUT',(output[2]:gsub('%%','%%%%')))
+  if fastRate~=1 and option.editorFast then
+    local editor=''
+    for s in option.editorFast:gmatch('[^|]+') do
+      editor=tools..'\\'..s
+      if edcb.FindFile(editor,1) then break end
+      editor=s
+    end
+    cmd='"'..editor..'" '..option.editorOptionFast..' | '..cmd
+  end
   if XCODE_LOG then
     local log=mg.script_name:gsub('[^\\/]*$','')..'log'
     if not edcb.FindFile(log,1) then
@@ -82,7 +98,7 @@ function OpenTranscoder()
     if f then
       f:write(cmd..'\n\n')
       f:close()
-      cmd=cmd..' 2>>"'..log..'"'
+      cmd=cmd..' 2>>"'..log:gsub('[&%^]','^%0')..'"'
     end
   end
   if hls then
@@ -92,8 +108,12 @@ function OpenTranscoder()
     cmd=cmd..' | "'..asyncbuf..'" '..XCODE_BUF..' '..XCODE_PREPARE
   end
   local sync=edcb.GetPrivateProfile('SET','KeepDisk',0,'EpgTimerSrv.ini')~='0'
+
+  -- コマンドが対応していればffmpeg暴走回避のオプションをつける
+  local c5or1,stat,code=edcb.os.execute('"'..tsreadex..'" -n -1 -c 5 -h')
+  c5or1=(c5or1 or (stat=='exit' and code==2)) and 5 or 1
   -- "-z"はプロセス検索用
-  cmd='"'..tsreadex..'" -z edcb-legacy-xcode -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 13 -b 5 -c 1 -u 2 -d 13 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
+  cmd='"'..tsreadex..'" -z edcb-legacy-'..searchName..' -s '..offset..' -l 16384 -t 6'..(sync and ' -m 1' or '')..' -x 18/38/39 -n -1 -a 13 -b 5 -c '..c5or1..' -u 2 -d 13 "'..fpath:gsub('[&%^]','^%0')..'" | '..cmd
   if hls then
     -- 極端に多く開けないようにする
     local indexCount=#(edcb.FindFile('\\\\.\\pipe\\tsmemseg_*_00',10) or {})
@@ -107,7 +127,7 @@ function OpenTranscoder()
         edcb.Sleep(100)
       end
       -- 失敗。プロセスが残っていたら終わらせる
-      edcb.os.execute('wmic process where "name=\'tsmemseg.exe\' and commandline like \'% '..segmentKey..'[_]%\'" call terminate >nul')
+      TerminateCommandlineLike('tsmemseg.exe','% '..segmentKey..'[_]%')
     end
     return nil
   end
@@ -116,7 +136,7 @@ end
 
 function OpenPsiDataArchiver()
   -- コマンドはEDCBのToolsフォルダにあるものを優先する
-  local tools=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools'
+  local tools=EdcbModulePath()..'\\Tools'
   local tsreadex=(edcb.FindFile(tools..'\\tsreadex.exe',1) and tools..'\\' or '')..'tsreadex.exe'
   local psisiarc=(edcb.FindFile(tools..'\\psisiarc.exe',1) and tools..'\\' or '')..'psisiarc.exe'
   local sync=edcb.GetPrivateProfile('SET','KeepDisk',0,'EpgTimerSrv.ini')~='0'
@@ -127,8 +147,9 @@ function OpenPsiDataArchiver()
 end
 
 function OpenJikkyoReader(tot,nid,sid)
-  if not JKRDLOG_PATH then return nil end
-  local cmd='"'..JKRDLOG_PATH..'" -r '..(fastRate*100)..' ns'..((NetworkType(nid)=='地デジ' and 15 or nid)*65536+sid)..' '..(tot+ofssec)..' 0'
+  local id=GetJikkyoID(nid,sid)
+  if not id or not JKRDLOG_PATH then return nil end
+  local cmd='"'..JKRDLOG_PATH..'" -r '..(fastRate*100)..' '..id..' '..(tot+ofssec)..' 0'
   return edcb.io.popen('"'..cmd..'"','r')
 end
 
@@ -153,19 +174,6 @@ function ReadPsiDataChunk(f,trailerSize,trailerRemainSize)
   local trailerConsumeSize=2-(trailerRemainSize+#buf+#payload+2)%3
   buf=('='):rep(trailerRemainSize)..buf..payload..('='):rep(trailerConsumeSize)
   return buf,2+(2+#payload)%4,2+(2+#payload)%4-trailerConsumeSize
-end
-
-function ReadJikkyoChunk(f)
-  local head=f:read(80)
-  if not head or #head~=80 then return nil end
-  local payload=''
-  local payloadSize=tonumber(head:match('L=([0-9]+)'))
-  if not payloadSize then return nil end
-  if payloadSize>0 then
-    payload=f:read(payloadSize)
-    if not payload or #payload~=payloadSize then return nil end
-  end
-  return head..payload
 end
 
 function CreateHlsPlaylist(f)

@@ -3,6 +3,7 @@ EDCB/**/*.ini
 EDCB/**/*.crt
 EDCB/**/*.key
 EDCB/**/*.pem
+EDCB/**/*.err
 EDCB/**/*DebugLog*.txt
 EDCB/EpgTimerSrvNotify.log
 EDCB/Setting/*

@@ -1,9 +1,14 @@
 ini='Setting\\HttpPublic.ini'
 
+--EDCBフォルダのパス
+function EdcbModulePath()
+  return edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')
+end
+
 --EDCBのロゴフォルダにロゴがないときにTvTestのロゴを検索するかどうか
 LOGO_DIR=tonumber(edcb.GetPrivateProfile('SET','TVTest_LOGO',false,ini))~=0
 if LOGO_DIR then
-  TVTest=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini'):gsub('[^\\/]*$','')..'TVTest'
+  TVTest=EdcbModulePath():gsub('[^\\/]*$','')..'TVTest'
   --LogoData.iniとLogoフォルダの絶対パス
   LOGO_INI=edcb.GetPrivateProfile('SET','LOGO_INI',TVTest..'\\LogoData.ini',ini)
   LOGO_DIR=edcb.GetPrivateProfile('SET','LOGO_DIR',TVTest..'\\Logo',ini)
@@ -32,8 +37,8 @@ USE_MP4_LLHLS=tonumber(edcb.GetPrivateProfile('HLS','USE_MP4_LLHLS',true,ini))~=
 --倍速再生(fastボタン)の速度
 XCODE_FAST=tonumber(edcb.GetPrivateProfile('XCODE','FAST',1.25,ini))
 
-if edcb.FindFile(edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Setting\\XCODE_OPTIONS.lua', 1) then
-  dofile(edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Setting\\XCODE_OPTIONS.lua')
+if edcb.FindFile(EdcbModulePath()..'\\Setting\\XCODE_OPTIONS.lua', 1) then
+  dofile(EdcbModulePath()..'\\Setting\\XCODE_OPTIONS.lua')
 end
 
 if not XCODE_OPTIONS then
@@ -44,6 +49,8 @@ if not XCODE_OPTIONS then
 --xcoder:トランスコーダーのToolsフォルダからの相対パス。'|'で複数候補を指定可。見つからなければ最終候補にパスが通っているとみなす
 --option:$OUTPUTは必須、再生時に適宜置換される。標準入力からMPEG2-TSを受け取るようにオプションを指定する
 --filter*Fast:倍速再生用、未定義でもよい
+--editorFast:単独で倍速再生にできないトランスコーダーの手前に置く編集コマンド。指定方法はxcoderと同様
+--editorOptionFast:標準入出力ともにMPEG2-TSで倍速再生になるようにオプションを指定する
 XCODE_OPTIONS={
   {
     --ffmpegの例。-b:vでおおよその最大ビットレートを決め、-qminで動きの少ないシーンのデータ量を節約する
@@ -66,7 +73,11 @@ XCODE_OPTIONS={
     option='--input-format mpegts --input-analyze 1 --input-probesize 4M -i - --avhw --profile main --level 4.1 --qvbr 3936 --qvbr-quality 26 --fallback-rc --max-bitrate 8192 --vbv-bufsize 8192 $FILTER --output-res 1280x720 --audio-stream $AUDIO?:stereo --audio-codec $AUDIO?aac --audio-bitrate $AUDIO?160 --audio-disposition $AUDIO?default $CAPTION -m max_interleave_delta:500k $OUTPUT',
     audioStartAt=1,
     filter='--gop-len 120 --interlace tff --vpp-deinterlace normal',
-    filterCinema='--gop-len 96 --interlace tff --vpp-afs preset=cinema,24fps=true',
+    filterCinema='--gop-len 96 --interlace tff --vpp-deinterlace normal --vpp-decimate',
+    filterFast='--fps '..math.floor(30000*XCODE_FAST+0.5)..'/1001 --gop-len '..math.floor(120*XCODE_FAST)..' --interlace tff --vpp-deinterlace normal',
+    filterCinemaFast='--fps '..math.floor(30000*XCODE_FAST+0.5)..'/1001 --gop-len '..math.floor(96*XCODE_FAST)..' --interlace tff --vpp-deinterlace normal --vpp-decimate',
+    editorFast='ffmpeg\\ffmpeg.exe|ffmpeg.exe',
+    editorOptionFast='-f mpegts -analyzeduration 1M -i - -bsf:v setts=ts=TS/'..XCODE_FAST..' -map 0:v?:0 -vcodec copy -af atempo='..XCODE_FAST..' -bsf:s setts=ts=TS/'..XCODE_FAST..' -map 0:a -acodec ac3 -ac 2 -b:a 640k -map 0:s? -scodec copy -max_interleave_delta 300k -f mpegts -',
     captionNone='',
     captionHls='--data-copy timed_id3',
     output={'mp4','-f mp4 --no-mp4opt -m movflags:frag_keyframe+empty_moov -o -'},
@@ -119,6 +130,19 @@ JK_COMMENT_HEIGHT=tonumber(edcb.GetPrivateProfile('JK','COMMENT_HEIGHT',32,ini))
 
 --実況コメントの表示時間(秒)
 JK_COMMENT_DURATION=tonumber(edcb.GetPrivateProfile('JK','COMMENT_DURATION',5,ini))
+
+if not JK_CHANNELS then
+--実況ログ表示機能のデジタル放送のサービスIDと、実況の番号(jk?)
+--キーの下4桁の16進数にサービスID、上1桁にネットワークID(ただし地上波は15=0xF)を指定
+--指定しないサービスにはjkrdlogの既定値が使われる
+JK_CHANNELS={
+  --例:テレビ東京(0x0430)をjk7と対応づけたいとき
+  --[0xF0430]=7,
+  --例:NHKBS1(0x0065)とデフォルト(jk101)との対応付けを解除したいとき
+  --[0x40065]=-1,
+}
+
+end
 
 if not JK_CUSTOM_REPLACE then
 --chatタグ表示前の置換(JavaScript)
@@ -204,9 +228,48 @@ function DocumentToNativePath(path)
   return nil
 end
 
+--設定関係保存フォルダのパス
+function EdcbSettingPath()
+  local dir=edcb.GetPrivateProfile('SET','DataSavePath','','Common.ini')
+  return dir~='' and dir or EdcbModulePath()..'\\Setting'
+end
+
+--録画保存フォルダのパスのリスト
+function EdcbRecFolderPathList()
+  local n=tonumber(edcb.GetPrivateProfile('SET','RecFolderNum',0,'Common.ini')) or 0
+  local r={n>0 and edcb.GetPrivateProfile('SET','RecFolderPath0','','Common.ini') or ''}
+  if r[1]=='' then
+    --必ず返す
+    r[1]=EdcbSettingPath()
+  end
+  for i=2,n do
+    local dir=edcb.GetPrivateProfile('SET','RecFolderPath'..(i-1),'','Common.ini')
+    --空要素は詰める
+    if dir~='' then
+      r[#r+1]=dir
+    end
+  end
+  return r
+end
+
 --現在の変換モードでHTMLエスケープする
 function EdcbHtmlEscape(s)
   return edcb.Convert('utf-8','utf-8',s)
+end
+
+--プロセス名とコマンドラインのパターンに一致するコマンドをすべて終了させる
+function TerminateCommandlineLike(name,pattern)
+  if pattern=='%' then
+    edcb.os.execute('taskkill /f /im "'..name..'"')
+  elseif not edcb.os.execute('wmic process where "name=\''..name..'\' and commandline like \''..pattern..'\'" call terminate >nul') then
+    --wmicがないとき
+    edcb.os.execute('powershell -NoProfile -c "try{(gwmi win32_process -filter \\"name=\''..name..'\' and commandline like \''..pattern..'\'\\").terminate()}catch{}"')
+  end
+end
+
+--符号なし整数の時計算の差を計算する
+function UintCounterDiff(a,b)
+  return (a+0x100000000-b)%0x100000000
 end
 
 --PCRまで読む
@@ -219,7 +282,7 @@ function ReadToPcr(f,pid)
         local pcr=((buf:byte(7)*256+buf:byte(8))*256+buf:byte(9))*256+buf:byte(10)
         local pid2=buf:byte(2)%32*256+buf:byte(3)
         if not pid or pid==pid2 then
-          return pcr,pid2
+          return pcr,pid2,i*188
         end
       end
     end
@@ -227,34 +290,24 @@ function ReadToPcr(f,pid)
   return nil
 end
 
---ファイルの長さを概算する
-function GetDurationSec(f,fpath)
-  --ffprobeを使う(正確になるはず)
-  if fpath then
-    local tools=edcb.GetPrivateProfile('SET', 'ModulePath', '', 'Common.ini')..'\\Tools\\'
-    local ffprobe=(edcb.FindFile(tools..'\\ffprobe.exe',1) and tools..'\\' or '')..'ffprobe.exe'
-    local ff=edcb.FindFile and edcb.FindFile(ffprobe, 1)
-    if ff then
-      local fp=edcb.io.popen('""'..ffprobe..'" -i "'..fpath..'" -v quiet -show_entries format=duration,size -of ini 2>&1"', 'rb')
-      if fp then
-        local a=fp:read('*a') or ''
-        fp:close()
-        local dur=tonumber(a:match('duration=(.-)\r\n'))
-        local fsize=tonumber(a:match('size=(.-)\r\n'))
-        if dur and fsize then
-          return dur,fsize
-        end
-      end
-    end
-  end
-  --PCRをもとに(少なめに報告するかもしれない)
+--PCRをもとにファイルの長さを概算する
+function GetDurationSec(f)
   local fsize=f:seek('end') or 0
   if fsize>1880000 and f:seek('set') then
     local pcr,pid=ReadToPcr(f)
     if pcr and f:seek('set',(math.floor(fsize/188)-10000)*188) then
-      local pcr2=ReadToPcr(f,pid)
+      local pcr2,pid2,n=ReadToPcr(f,pid)
       if pcr2 then
-        return math.floor((pcr2+0x100000000-pcr)%0x100000000/45000),fsize
+        --終端まで読む
+        local range=1880000
+        while true do
+          local dur=math.floor(UintCounterDiff(pcr2,pcr)/45000)
+          range=range-n
+          pcr2,pid2,n=ReadToPcr(f,pid)
+          if not pcr2 or range<0 then
+            return dur,fsize
+          end
+        end
       end
       --TSデータが存在する境目を見つける
       local predicted,range=math.floor(fsize/2/188)*188,fsize
@@ -268,7 +321,7 @@ function GetDurationSec(f,fpath)
       if predicted>0 and f:seek('set',predicted) then
         pcr2=ReadToPcr(f,pid)
         if pcr2 then
-          return math.floor((pcr2+0x100000000-pcr)%0x100000000/45000),predicted
+          return math.floor(UintCounterDiff(pcr2,pcr)/45000),predicted
         end
       end
     end
@@ -281,17 +334,39 @@ function SeekSec(f,sec,dur,fsize)
   if dur>0 and fsize>1880000 and f:seek('set') then
     local pcr,pid=ReadToPcr(f)
     if pcr then
-      local pos,diff=0,math.min(math.max(sec,0),dur)*45000
-      --5ループまたは誤差が2秒未満になるまで動画レートから概算シーク
-      for i=1,5 do
-        if math.abs(diff)<90000 then break end
-        pos=math.floor(math.min(math.max(pos+fsize/dur*diff/45000,0),fsize-1880000)/188)*188
-        if not f:seek('set',pos) then return false end
+      --最終目標の3秒手前を目標に6ループまたは誤差が±3秒未満になるまで動画レートから概算シーク
+      local pos,diff,rate=0,math.min(math.max(sec-3,0),dur)*45000,fsize/dur
+      for i=1,6 do
+        if math.abs(diff)<45000*3 then break end
+        local approx=math.floor(math.min(math.max(pos+rate*diff/45000,0),fsize-1880000)/188)*188
+        if not f:seek('set',approx) then return false end
         local pcr2=ReadToPcr(f,pid)
         if not pcr2 then return false end
         --移動分を差し引く
-        diff=diff+((pcr2+0x100000000-pcr)%0x100000000<0x80000000 and -((pcr2+0x100000000-pcr)%0x100000000) or (pcr+0x100000000-pcr2)%0x100000000)
-        pcr=pcr2
+        local diff2=diff+(UintCounterDiff(pcr2,pcr)<0x80000000 and -UintCounterDiff(pcr2,pcr) or UintCounterDiff(pcr,pcr2))
+        if math.abs(diff2)>=45000*3 and ((diff<0 and diff2>-diff/2) or (diff>0 and diff2<-diff/2)) then
+          --移動しすぎているのでレートを下げてやり直し
+          rate=rate/1.5
+        else
+          if (diff<0 and diff2*2<diff) or (diff>0 and diff2*2>diff) then
+            --あまり移動していないのでレートを上げる
+            rate=rate*1.5
+          end
+          pos=approx
+          pcr=pcr2
+          diff=diff2
+        end
+      end
+      if math.abs(diff)<45000*3 then
+        --最終目標まで進む
+        diff=diff+45000*3
+        local diff2=diff
+        while diff2>22500 do
+          if diff2>45000*6 then return false end
+          local pcr2=ReadToPcr(f,pid)
+          if not pcr2 then return false end
+          diff2=diff+(UintCounterDiff(pcr2,pcr)<0x80000000 and -UintCounterDiff(pcr2,pcr) or UintCounterDiff(pcr,pcr2))
+        end
       end
       return true
     end
@@ -337,7 +412,7 @@ function GetTotAndServiceID(f)
             local m=buf:byte(pointer+6)
             local s=buf:byte(pointer+7)
             tot=((mjd*24+math.floor(h/16)*10+h%16)*60+math.floor(m/16)*10+m%16)*60+math.floor(s/16)*10+s%16-
-                3506749200-math.floor((pcr2+0x100000000-pcr)%0x100000000/45000)
+                3506749200-math.floor(UintCounterDiff(pcr2,pcr)/45000)
           end
           if tot and nid and sid then
             return tot,nid,sid
@@ -349,6 +424,26 @@ function GetTotAndServiceID(f)
   return nil
 end
 
+--ライブ実況やjkrdlogの出力のチャンクを1つだけ読み取る
+function ReadJikkyoChunk(f)
+  local head=f:read(80)
+  if not head or #head~=80 then return nil end
+  local payload=''
+  local payloadSize=tonumber(head:match('L=([0-9]+)'))
+  if not payloadSize then return nil end
+  if payloadSize>0 then
+    payload=f:read(payloadSize)
+    if not payload or #payload~=payloadSize then return nil end
+  end
+  return head..payload
+end
+
+--jkrdlogに渡す実況のIDを取得する
+function GetJikkyoID(nid,sid)
+  --地上波のサービス種別とサービス番号はマスクする
+  local id=0x7880<=nid and nid<=0x7fe8 and 0xf0000+bit32.band(sid,0xfe78) or nid*65536+sid
+  return not JK_CHANNELS[id] and 'ns'..id or JK_CHANNELS[id]>0 and 'jk'..JK_CHANNELS[id]
+end
 
 --リトルエンディアンの値を取得する
 function GetLeNumber(buf,pos,len)

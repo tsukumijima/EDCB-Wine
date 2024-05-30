@@ -12,7 +12,7 @@ function template(temp)
   local suspend=''
   local edcbnosuspend=edcb.GetPrivateProfile('SET','ModulePath','','Common.ini')..'\\Tools\\edcbnosuspend.exe'
   if edcb.FindFile(edcbnosuspend,1) then
-    local onstat,stat,code=edcb.os.execute('wmic process where "name=\'edcbnosuspend.exe\'" get processid 2>nul | findstr /b [1-9]')
+    local onstat,stat,code=edcb.os.execute('tasklist /fi "imagename eq edcbnosuspend.exe" /fo csv /nh | find /i "edcbnosuspend.exe"')
     onstat=onstat and stat=='exit' and code==0 and 'y'
     suspend=suspend..'<li id="nosuspend" class="mdl-menu__item'..(not INDEX_ENABLE_SUSPEND and temp.menu and ' mdl-menu__item--full-bleed-divider' or '')..(onstat=='y' and ' n' or ' y')..'" data-nosuspend="'..(onstat=='y' and 'n' or 'y')..'" data-ctok="'..CsrfToken('common')..'">録画後動作<span id="n">の抑制を*解除*</span><span id="y">を抑制</span></li>\n'
   end
@@ -1119,7 +1119,7 @@ end
 --時間の文字列を取得する
 function FormatTimeAndDuration(t,dur)
   dur=dur and (t.hour*3600+t.min*60+t.sec+dur)
-  return string.format('%d/%02d/%02d(%s) %02d:%02d',t.year,t.month,t.day,({'日','月','火','水','木','金','土',})[t.wday],t.hour,t.min)
-    ..(t.sec~=0 and string.format('<small>:%02d</small>',t.sec) or '')
-    ..(dur and string.format('～%02d:%02d',math.floor(dur/3600)%24,math.floor(dur/60)%60)..(dur%60~=0 and string.format('<small>:%02d</small>',dur%60) or '') or '')
+  return ('%d/%02d/%02d(%s) %02d:%02d'):format(t.year,t.month,t.day,({'日','月','火','水','木','金','土',})[t.wday],t.hour,t.min)
+    ..(t.sec~=0 and ('<small>:%02d</small>'):format(t.sec) or '')
+    ..(dur and ('～%02d:%02d'):format(math.floor(dur/3600)%24,math.floor(dur/60)%60)..(dur%60~=0 and ('<small>:%02d</small>'):format(dur%60) or '') or '')
 end

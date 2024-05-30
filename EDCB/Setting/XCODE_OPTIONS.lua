@@ -1,5 +1,5 @@
 --[[
-トランスコードオプション、字幕表示のオプション、chatタグ表示前の置換の設定用のファイルです
+トランスコードオプション、字幕表示のオプション、実況ログ表示機能のIDの対応づけ、chatタグ表示前の置換の設定用のファイルです
 コメントアウトを外して使用してください
 デフォルト設定が記載されています
 
@@ -17,6 +17,8 @@
 --xcoder:トランスコーダーのToolsフォルダからの相対パス。'|'で複数候補を指定可。見つからなければ最終候補にパスが通っているとみなす
 --option:$OUTPUTは必須、再生時に適宜置換される。標準入力からMPEG2-TSを受け取るようにオプションを指定する
 --filter*Fast:倍速再生用、未定義でもよい
+--editorFast:単独で倍速再生にできないトランスコーダーの手前に置く編集コマンド。指定方法はxcoderと同様
+--editorOptionFast:標準入出力ともにMPEG2-TSで倍速再生になるようにオプションを指定する
 --[[
 XCODE_OPTIONS={
   {
@@ -40,7 +42,11 @@ XCODE_OPTIONS={
     option='--input-format mpegts --input-analyze 1 --input-probesize 4M -i - --avhw --profile main --level 4.1 --qvbr 3936 --qvbr-quality 26 --fallback-rc --max-bitrate 8192 --vbv-bufsize 8192 $FILTER --output-res 1280x720 --audio-stream $AUDIO?:stereo --audio-codec $AUDIO?aac --audio-bitrate $AUDIO?160 --audio-disposition $AUDIO?default $CAPTION -m max_interleave_delta:500k $OUTPUT',
     audioStartAt=1,
     filter='--gop-len 120 --interlace tff --vpp-deinterlace normal',
-    filterCinema='--gop-len 96 --interlace tff --vpp-afs preset=cinema,24fps=true',
+    filterCinema='--gop-len 96 --interlace tff --vpp-deinterlace normal --vpp-decimate',
+    filterFast='--fps '..math.floor(30000*XCODE_FAST+0.5)..'/1001 --gop-len '..math.floor(120*XCODE_FAST)..' --interlace tff --vpp-deinterlace normal',
+    filterCinemaFast='--fps '..math.floor(30000*XCODE_FAST+0.5)..'/1001 --gop-len '..math.floor(96*XCODE_FAST)..' --interlace tff --vpp-deinterlace normal --vpp-decimate',
+    editorFast='ffmpeg\\ffmpeg.exe|ffmpeg.exe',
+    editorOptionFast='-f mpegts -analyzeduration 1M -i - -bsf:v setts=ts=TS/'..XCODE_FAST..' -map 0:v?:0 -vcodec copy -af atempo='..XCODE_FAST..' -bsf:s setts=ts=TS/'..XCODE_FAST..' -map 0:a -acodec ac3 -ac 2 -b:a 640k -map 0:s? -scodec copy -max_interleave_delta 300k -f mpegts -',
     captionNone='',
     captionHls='--data-copy timed_id3',
     output={'mp4','-f mp4 --no-mp4opt -m movflags:frag_keyframe+empty_moov -o -'},
@@ -72,6 +78,20 @@ ARIBB24_JS_OPTION=[=[
   drcsReplacement: true,
   useStroke: true,
 ]=]
+--]]
+
+
+
+--実況ログ表示機能のデジタル放送のサービスIDと、実況の番号(jk?)
+--キーの下4桁の16進数にサービスID、上1桁にネットワークID(ただし地上波は15=0xF)を指定
+--指定しないサービスにはjkrdlogの既定値が使われる
+--[[
+JK_CHANNELS={
+  --例:テレビ東京(0x0430)をjk7と対応づけたいとき
+  --[0xF0430]=7,
+  --例:NHKBS1(0x0065)とデフォルト(jk101)との対応付けを解除したいとき
+  --[0x40065]=-1,
+}
 --]]
 
 
