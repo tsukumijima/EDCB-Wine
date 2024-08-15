@@ -4,7 +4,7 @@
 
 # 更新する EDCB のバージョン
 # このバージョンは tsukumijima/DTV-Builds の GitHub リポジトリに公開されているものと一致している必要がある
-EDCB_VERSION="240222"
+EDCB_VERSION="240622"
 
 # ----------------------------------------------------------------------------------------------------
 
@@ -33,6 +33,7 @@ rm -rf EDCB-${EDCB_VERSION}/Tools/asyncbuf.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/ffmpeg.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/ffprobe.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/psisiarc.exe
+rm -rf EDCB-${EDCB_VERSION}/Tools/psisimux.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/relayread.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/tsmemseg.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/tsreadex.exe
