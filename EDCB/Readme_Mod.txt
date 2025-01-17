@@ -1126,14 +1126,14 @@ edcb.os.execute('echo %hoge% %fuga% & pause', true, {hoge='ほげ♪',fuga='ふ�
 - 指定サービスの全イベントについて最小開始時間と最大開始時間を取得する  
   開始時間未定でないイベントが1つもなければnil。
   GetEventMinMaxTimeArchive()は過去イベントが対象。
-  (SearchEpgArchiveが存在するバージョン以降)IDの上位16bitにマッチのORマスクを付加できる。
+  IDの上位16bitにマッチのORマスクを付加できる。
 
 `EnumEventInfo( {onid:I|nil, tsid:I|nil, sid:I|nil}のリスト [, {startTime:TIME|nil, durationSecond:I|nil} ] ) → <イベント情報>のリスト`  
 `EnumEventInfoArchive( {onid:I|nil, tsid:I|nil, sid:I|nil}のリスト [, {startTime:TIME|nil, durationSecond:I|nil} ] ) → <イベント情報>のリスト`
 - 指定サービスの全イベント情報を取得する(onid>tsid>sid>eidソート、EnumEventInfoArchive()は未ソート)  
   リストのいずれかにマッチしたサービスについて取得する。
   - onid,tsid,sidフィールドを各々nilとすると、各々すべてのIDにマッチする。
-  - (SearchEpgArchiveが存在するバージョン以降)IDの上位16bitにマッチのORマスクを付加できる。
+  - IDの上位16bitにマッチのORマスクを付加できる。
 
   第2引数にイベントの開始時間の範囲を指定できる。
   - 開始時間がstartTime以上～startTime+durationSecond未満のイベントにマッチ
@@ -1143,16 +1143,13 @@ edcb.os.execute('echo %hoge% %fuga% & pause', true, {hoge='ほげ♪',fuga='ふ�
   ※再利用の可能性があるため、過去イベントのeidをIDとして扱うべきでない。
   ※取得対象が月～年単位になりうるので、サービス指定も時間指定もない呼び出しは控えるべき。
 
-  以前はnilが返る場合があったが(SearchEpgArchiveが存在するバージョン以降)常にリストが返る。
-
 `SearchEpg( <自動予約検索条件> [, {startTime:TIME|nil, durationSecond:I|nil} ] ) → <イベント情報>のリスト`  
 `SearchEpgArchive( <自動予約検索条件> [, {startTime:TIME|nil, durationSecond:I|nil} ] ) → <イベント情報>のリスト`  
 `SearchEpg( ネットワークID:I, TSID:I, サービスID:I, イベントID:I ) → <イベント情報>|nil`
 - イベント情報を検索する  
   1～2引数のときは`<自動予約検索条件>`にマッチしたイベントを取得する。(onid>tsid>sid>eidソート、SearchEpgArchiveは未ソート)  
-  (SearchEpgArchiveが存在するバージョン以降)第2引数にイベントの開始時間の範囲を指定できる。  
+  第2引数にイベントの開始時間の範囲を指定できる。  
   SearchEpgArchive()は過去イベントが対象。※取得対象が月～年単位になりうるので、時間指定のない呼び出しは控えるべき。  
-  以前はnilが返る場合があったが(SearchEpgArchiveが存在するバージョン以降)常にリストが返る。  
   4引数のときは指定イベントを取得する。なければnilが返る。
 
 `AddReserveData( <予約情報> ) → B`
@@ -1255,23 +1252,23 @@ edcb.os.execute('echo %hoge% %fuga% & pause', true, {hoge='ほげ♪',fuga='ふ�
   1つ以上の検索結果があるときはリスト、それ以外はnilが返る。
   【UNIX】検索パターンのワイルドカードのうち'*'は3個まで使用可能。
 
-`OpenNetworkTV( 送信モード:I, ネットワークID:I, TSID:I, サービスID:I [, NetworkTVID:I ] ) → B[,I]`
+`OpenNetworkTV( 送信モード:I, ネットワークID:I, TSID:I, サービスID:I [, NetworkTVID:I ] ) → B[,I,I]`
 - NetworkTVモードを開始する、またはサービスを変更する  
   EpgTimerSrv設定の「視聴に使用するBonDriver」から使われていないチューナを優先度逆順に探して起動する。
   NetworkTVモードの優先度は予約より低くEPG取得より高い。  
   送信モードにチューナのUDP(+1)/TCP(+2)オプションを指定する。開始済みチューナの送信モードは変化しない。  
-  (IsOpenNetworkTVが存在するバージョン以降)NetworkTVIDを指定できる。省略時は0を指定したものとみなす。
+  NetworkTVIDを指定できる。省略時は0を指定したものとみなす。
   NetworkTVIDは任意の整数で、大小に優劣はない。EpgTimerのNetworkTVモードでは0が使われる。
   NetworkTVIDの異なるNetworkTVモードは干渉なく扱える。  
-  失敗時はfalse。成功時はtrueと(IsOpenNetworkTVが存在するバージョン以降)チューナのプロセスIDを返す。
+  失敗時はfalse。成功時はtrueとチューナのプロセスID、および2024年頃のバージョン以降は呼び出しが成功するごとに変化するNetworkTVIDごとに割り振られた負でない整数、を返す。
 
-`IsOpenNetworkTV( NetworkTVID:I ) → B[,I]`
+`IsOpenNetworkTV( NetworkTVID:I ) → B[,I,I]`
 - NetworkTVモードが開始しているか  
   戻り値はOpenNetworkTVと同じ。
 
 `CloseNetworkTV( [ NetworkTVID:I ] )`
 - NetworkTVモードを終了する  
-  (IsOpenNetworkTVが存在するバージョン以降)NetworkTVIDを指定できる。省略時は0を指定したものとみなす。
+  NetworkTVIDを指定できる。省略時は0を指定したものとみなす。
 
 #### EnumRecPresetInfo
 

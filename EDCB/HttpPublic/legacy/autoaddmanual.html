@@ -1,0 +1,89 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+ct:Append(DOCTYPE_HTML4_STRICT..[=[
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>プログラム予約条件一覧 - EDCB</title>
+</head>
+<body>
+<h1>プログラム予約条件一覧</h1>
+<div class="page-nav">
+  ]=])
+
+focusID=nil
+post=AssertPost()
+if post then
+  focusID=GetVarInt(post,'del')
+  if focusID then
+    edcb.DelManuAdd(focusID)
+    ct:Append('  <div id="result">削除しました</div>\n')
+  end
+end
+
+edcb.htmlEscape=15
+a=edcb.EnumManuAdd()
+pageCount=AUTOADDEPG_PAGE_COUNT
+focusID=focusID or GetVarInt(mg.request_info.query_string,'id')
+if focusID then
+  --focusIDの行を含むページを探す
+  focusIndex=BinarySearchBound(a,{dataID=focusID},CompareFields('dataID'))
+  page=math.floor(math.max(math.min(focusIndex-1,#a-1),0)/pageCount)
+else
+  page=GetVarInt(mg.request_info.query_string,'page',0,(#a-1)/pageCount) or 0
+end
+
+pageNav=''
+if #a>pageCount then
+  for i=math.max(page-1,1),math.min(math.max(page-1,1)+6,(#a+pageCount-1)/pageCount) do
+    pageNav=pageNav..(i-1==page and ((i-1)*pageCount+1)..'～ ' or '<a href="autoaddmanual.html?page='..(i-1)..'">'..((i-1)*pageCount+1)..'～</a> ')
+  end
+  pageNav=(page==0 and '|&lt;&lt; ' or '<a href="autoaddmanual.html">|&lt;&lt;</a> ')..pageNav
+    ..(page==math.floor((#a-1)/pageCount) and '&gt;&gt;|' or '<a href="autoaddmanual.html?page='..math.floor((#a-1)/pageCount)..'">&gt;&gt;|</a>\n')
+end
+ct:Append(pageNav)
+ct:Append([=[
+</div>
+<div id="main">
+  <table>
+]=])
+
+for i=page*pageCount+1,math.min(#a,(page+1)*pageCount) do
+  ct:Append('    <tr><td><a href="autoaddmanualinfo.html?id='..a[i].dataID..'">'..a[i].title..'&ensp;</a><td>')
+  for j=1,7 do
+    if a[i].dayOfWeekFlag%2==1 then
+      ct:Append(({'日','月','火','水','木','金','土'})[j])
+    end
+    a[i].dayOfWeekFlag=math.floor(a[i].dayOfWeekFlag/2)
+  end
+  endTime=(a[i].startTime+a[i].durationSecond)%(24*3600)
+  ct:Append(('<td>%02d:%02d:%02d ～ %02d:%02d:%02d'):format(math.floor(a[i].startTime/3600),math.floor(a[i].startTime/60)%60,a[i].startTime%60,
+                                                            math.floor(endTime/3600),math.floor(endTime/60)%60,endTime%60)
+    ..'<td>'..a[i].stationName
+    ..'<td>'..(RecModeTextList()[(a[i].recSetting.recMode~=5 and a[i].recSetting.recMode or a[i].recSetting.noRecMode or 1)+1] or '')
+    ..'<td>'..a[i].recSetting.priority..'</tr>\n')
+end
+
+ct:Append([=[
+  </table>
+</div>
+<div class="page-nav">
+  ]=])
+ct:Append(pageNav)
+ct:Append([=[
+</div>
+<div class="aside">
+  <a href="autoaddmanualinfo.html">新規追加</a>
+</div>
+<div id="footer">
+  <a href="index.html">メニュー</a>
+</div>
+</body>
+</html>
+]=])
+ct:Finish()
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))

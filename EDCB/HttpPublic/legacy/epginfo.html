@@ -33,8 +33,9 @@ function AddReserve(onid,tsid,sid,eid,post)
       tunerID=GetVarInt(post,'tunerID'),
       partialRecFlag=GetVarInt(post,'partialRecFlag',0,1) or 0
     }
+    local chInfo=BinarySearch(edcb.GetChDataList(),r,CompareFields('onid',false,'tsid',false,'sid'))
     local ev=edcb.SearchEpg(onid,tsid,sid,eid)
-    if ev and ev.startTime and ev.durationSecond and
+    if chInfo and ev and ev.startTime and ev.durationSecond and
        r.recSetting.recMode and
        r.recSetting.priority and
        r.recSetting.suspendMode and
@@ -45,13 +46,7 @@ function AddReserve(onid,tsid,sid,eid,post)
       r.startTime=ev.startTime
       r.startTimeEpg=ev.startTime
       r.durationSecond=ev.durationSecond
-      r.stationName=''
-      for i,v in ipairs(edcb.GetServiceList() or {}) do
-        if v.onid==onid and v.tsid==tsid and v.sid==sid then
-          r.stationName=v.service_name
-          break
-        end
-      end
+      r.stationName=chInfo.serviceName
       return edcb.AddReserveData(r)
     end
   end
@@ -99,7 +94,7 @@ ct:Append('  <dl>\n'
 if r then
   dur=r.startTime.hour*3600+r.startTime.min*60+r.startTime.sec+r.durationSecond
   ct:Append('    <dt>プログラム予約化（プログラム予約化は元に戻せません。番組を特定できなくなるため追従もできません。）</dt><dd>\n'
-    ..'<form method="POST" action="reserveinfo.html?id='..r.reserveID
+    ..'<form method="POST" action="reserveinfo.html?id='..r.reserveID..'&amp;fromepg=1'
     ..'"><div><input type="hidden" name="ctok" value="'..CsrfToken('reserveinfo.html')..'">\n'
     ..'<input type="hidden" name="addchg" value="y">\n'
     ..'予約日時: <input type="text" size="4" name="start-y" value="'..r.startTime.year
@@ -135,7 +130,7 @@ end
 ct:Append('</select> <button type="submit">録画設定にロード</button></div></form></dd>\n'
   ..'    <dt>録画設定<dt><dd>\n'
   ..'<form method="POST" action="'
-  ..(r and 'reserveinfo.html?id='..r.reserveID or 'epginfo.html?id='..onid..'-'..tsid..'-'..sid..'-'..eid)
+  ..(r and 'reserveinfo.html?id='..r.reserveID..'&amp;fromepg=1' or 'epginfo.html?id='..onid..'-'..tsid..'-'..sid..'-'..eid)
   ..'"><div><input type="hidden" name="presetID" value="'..(preset and presetID or 65535)..'">\n'
   ..'<input type="hidden" name="ctok" value="'..CsrfToken(r and 'reserveinfo.html')..'">\n'
   ..'<input type="hidden" name="addchg" value="y">\n'

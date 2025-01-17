@@ -39,6 +39,7 @@ hlsKey=hlsKey and n and mg.md5('view:'..hlsKey..(onid and ':nwtv' or ':')..n..':
 -- フラグメント長の目安
 partConfigSec=0.8
 
+-- トランスコードを開始し、HLSの場合はインデックスファイルの情報、それ以外はMP4などのストリーム自体を返す
 function OpenTranscoder(pipeName,searchName,nwtvclose,targetSID)
   if XCODE_SINGLE then
     -- トランスコーダーの親プロセスのリストを作る
@@ -70,27 +71,30 @@ function OpenTranscoder(pipeName,searchName,nwtvclose,targetSID)
   local tsreadex=FindToolsCommand('tsreadex')
   local asyncbuf=FindToolsCommand('asyncbuf')
   local tsmemseg=FindToolsCommand('tsmemseg')
-  local xcoder=''
-  if WIN32 then
-    for s in option.xcoder:gmatch('[^|]+') do
-      xcoder=PathAppend(tools,s)
-      if EdcbFindFilePlain(xcoder) then break end
-      xcoder=s
+  local cmd=''
+  if filter~=':' then
+    local xcoder=''
+    if WIN32 then
+      for s in option.xcoder:gmatch('[^|]+') do
+        xcoder=PathAppend(tools,s)
+        if EdcbFindFilePlain(xcoder) then break end
+        xcoder=s
+      end
+      xcoder='"'..xcoder..'"'
+    else
+      xcoder=('|'..option.xcoder:gsub('%.exe$','')):match('[\\/|]([0-9A-Za-z._-]+)$')
+      xcoder=xcoder and FindToolsCommand(xcoder) or ':'
     end
-    xcoder='"'..xcoder..'"'
-  else
-    xcoder=('|'..option.xcoder:gsub('%.exe$','')):match('[\\/|]([0-9A-Za-z._-]+)$')
-    xcoder=xcoder and FindToolsCommand(xcoder) or ':'
+    cmd=' | '..xcoder..' '..option.option
+      :gsub('$SRC','-')
+      :gsub('$AUDIO',audio2)
+      :gsub('$DUAL','')
+      :gsub('$FILTER',(filter:gsub('%%',WIN32 and '%%%%' or '%%')))
+      :gsub('$CAPTION',(caption:gsub('%%',WIN32 and '%%%%' or '%%')))
+      :gsub('$OUTPUT',(output[2]:gsub('%%',WIN32 and '%%%%' or '%%')))
   end
 
-  local cmd=xcoder..' '..option.option
-    :gsub('$SRC','-')
-    :gsub('$AUDIO',audio2)
-    :gsub('$DUAL','')
-    :gsub('$FILTER',(filter:gsub('%%',WIN32 and '%%%%' or '%%')))
-    :gsub('$CAPTION',(caption:gsub('%%',WIN32 and '%%%%' or '%%')))
-    :gsub('$OUTPUT',(output[2]:gsub('%%',WIN32 and '%%%%' or '%%')))
-  if XCODE_LOG then
+  if XCODE_LOG and cmd~='' then
     local log=mg.script_name:gsub('[^\\/]*$','')..'log'
     if not EdcbFindFilePlain(log) then
       edcb.os.execute('mkdir '..QuoteCommandArgForPath(log))
@@ -99,7 +103,7 @@ function OpenTranscoder(pipeName,searchName,nwtvclose,targetSID)
     log=PathAppend(log,'view-'..os.time()..'-'..mg.md5(cmd):sub(29)..'.txt')
     local f=edcb.io.open(log,'w')
     if f then
-      f:write(cmd..'\n\n')
+      f:write(cmd:sub(4)..'\n\n')
       f:close()
       cmd=cmd..' 2>>'..QuoteCommandArgForPath(log)
     end
@@ -109,13 +113,16 @@ function OpenTranscoder(pipeName,searchName,nwtvclose,targetSID)
     -- プロセス終了時に対応するNetworkTVモードも終了させる
     cmd=cmd..' | '..tsmemseg..(hls4>0 and ' -4' or '')..' -a 10 -m 8192 -d 3 -p '..partConfigSec..' '..(WIN32 and '' or '-g '..QuoteCommandArgForPath(EdcbModulePath())..' ')
     if nwtvclose then
-      if WIN32 then
-        cmd=cmd.."-c \"..\\EpgTimerSrv.exe /luapost if(edcb.GetPrivateProfile('NWTV','nwtv"..nwtvclose[1].."open','"..nwtvclose[2]
-          .."','Setting\\\\HttpPublic.ini')=='"..nwtvclose[2].."')then;edcb.CloseNetworkTV("..nwtvclose[1]..");end\" "
+      cmd=cmd..(WIN32 and '-c "..\\EpgTimerSrv.exe /luapost ' or '-c "echo \\"')
+      if type(nwtvclose[2])=='string' then
+        -- 古い環境用
+        cmd=cmd.."if(edcb.GetPrivateProfile('NWTV','nwtv"..nwtvclose[1].."open','"..nwtvclose[2]
+          .."','Setting"..(WIN32 and '\\\\' or '/').."HttpPublic.ini')=='"..nwtvclose[2].."')"
       else
-        cmd=cmd.."-c \"echo \\\"if(edcb.GetPrivateProfile('NWTV','nwtv"..nwtvclose[1].."open','"..nwtvclose[2]
-          .."','Setting/HttpPublic.ini')=='"..nwtvclose[2].."')then;edcb.CloseNetworkTV("..nwtvclose[1]..");end\\\" >>\\\""..PathAppend(EdcbModulePath(),'EpgTimerSrvLuaPost.fifo').."\\\"\" "
+        cmd=cmd..'ok,pid,openID=edcb.IsOpenNetworkTV('..nwtvclose[1]..');if(ok)and(openID=='..nwtvclose[2]..')'
       end
+      cmd=cmd..'then;edcb.CloseNetworkTV('..nwtvclose[1]..');end'
+        ..(WIN32 and '" ' or '\\" >>\\"'..PathAppend(EdcbModulePath(),'EpgTimerSrvLuaPost.fifo')..'\\"" ')
     end
     cmd=cmd..hlsKey..'_'
   elseif XCODE_BUF>0 then
@@ -123,7 +130,7 @@ function OpenTranscoder(pipeName,searchName,nwtvclose,targetSID)
   end
 
   -- "-z"はプロセス検索用
-  cmd=tsreadex..' -z edcb-legacy-'..searchName..' -t 10 -m 2 -x 18/38/39 -n '..(targetSID or -1)..' -a 9 -b 1 -c 5 -u 2 '..QuoteCommandArgForPath(SendTSTCPPipePath(pipeName,0))..' | '..cmd
+  cmd=tsreadex..' -z edcb-legacy-'..searchName..' -t 10 -m 2 -x 18/38/39 -n '..(targetSID or -1)..' -a 9 -b 1 -c 5 -u 2 '..QuoteCommandArgForPath(SendTSTCPPipePath(pipeName,0))..cmd
   if hlsKey then
     -- 極端に多く開けないようにする
     local indexCount=#(edcb.FindFile(TsmemsegPipePath('*_','00'),10) or {})
@@ -257,10 +264,13 @@ if onid then
       else
         -- 前回のプロセスが残っていたら終わらせる
         TerminateCommandlineLike('tsreadex',' -z edcb-legacy-nwtv-'..n..' ')
-        openTime=os.time()
-        edcb.WritePrivateProfile('NWTV','nwtv'..n..'open','@'..openTime,'Setting\\HttpPublic.ini')
         -- NetworkTVモードを開始
-        ok,pid=edcb.OpenNetworkTV(2,onid,tsid,sid,n)
+        ok,pid,myOpenID=edcb.OpenNetworkTV(2,onid,tsid,sid,n)
+        if ok and not myOpenID then
+          -- 古い環境用
+          myOpenID='@'..os.time()
+          edcb.WritePrivateProfile('NWTV','nwtv'..n..'open',myOpenID,'Setting\\HttpPublic.ini')
+        end
       end
       if ok then
         -- 名前付きパイプができるまで待つ
@@ -306,7 +316,7 @@ if onid then
           end
         else
           if pipeName then
-            f=OpenTranscoder(pipeName,'nwtv-'..n,{n,'@'..openTime},sid)
+            f=OpenTranscoder(pipeName,'nwtv-'..n,{n,myOpenID},sid)
             fname='view.'..output[1]
           end
           if not f then
@@ -392,10 +402,13 @@ elseif psidata or jikkyo then
 elseif hlsKey then
   -- インデックスファイルを返す
   i=1
-  while true do
+  repeat
     m3u=CreateHlsPlaylist(f)
     f:close()
-    if i>40 or not hlsMsn or m3u:find('EXT%-X%-ENDLIST') or not m3u:find('CAN%-BLOCK%-RELOAD') or
+    if not m3u:find('#EXT%-X%-MEDIA%-SEQUENCE:') then
+      -- 最初のセグメントができるまでは2秒だけ応答保留する
+      if i>10 then break end
+    elseif i>40 or not hlsMsn or m3u:find('#EXT%-X%-ENDLIST') or not m3u:find('CAN%-BLOCK%-RELOAD') or
        not m3u:find('_'..(hlsMsn-1)..'\n') or
        m3u:find('_'..hlsMsn..'\n') or
        (hlsPart and m3u:find('_'..hlsMsn..'_'..(hlsPart+1)..'"')) then
@@ -403,9 +416,8 @@ elseif hlsKey then
     end
     edcb.Sleep(200)
     f=OpenTsmemsegPipe(hlsKey..'_','00')
-    if not f then break end
     i=i+1
-  end
+  until not f
   ct=CreateContentBuilder()
   ct:Append(m3u)
   ct:Finish()
@@ -430,10 +442,21 @@ else
   end
   f:close()
   if onid then
+    -- NetworkTVモードを終了
     -- リロード時などの終了を防ぐ。厳密にはロックなどが必要だが概ねうまくいけば良い
-    if edcb.GetPrivateProfile('NWTV','nwtv'..n..'open','@'..openTime,'Setting\\HttpPublic.ini')=='@'..openTime then
-      -- NetworkTVモードを終了
-      edcb.CloseNetworkTV(n)
+    if type(myOpenID)=='string' then
+      -- 古い環境用
+      if edcb.GetPrivateProfile('NWTV','nwtv'..n..'open',myOpenID,'Setting\\HttpPublic.ini')==myOpenID then
+        edcb.CloseNetworkTV(n)
+      end
+    else
+      ok,pid,openID=edcb.IsOpenNetworkTV(n)
+      if ok and openID==myOpenID then
+        -- チャンネル変更のため終了を遅らせる
+        edcb.os.execute((WIN32 and 'start "" /b cmd /s /c "timeout 5 & cd /d "'..EdcbModulePath()..'" && .\\EpgTimerSrv.exe /luapost ' or '(sleep 5 ; echo "')
+          ..'ok,pid,openID=edcb.IsOpenNetworkTV('..n..');if(ok)and(openID=='..myOpenID..')then;edcb.CloseNetworkTV('..n..');end'
+          ..(WIN32 and '"' or '" >>"'..PathAppend(EdcbModulePath(),'EpgTimerSrvLuaPost.fifo')..'") &'))
+      end
     end
   end
 end

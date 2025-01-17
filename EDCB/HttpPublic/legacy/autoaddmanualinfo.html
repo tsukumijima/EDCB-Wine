@@ -1,0 +1,182 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+function AddOrChange(dataID,post)
+  local aa={dataID=dataID}
+  local found=nil
+  local presetID=GetVarInt(post,'presetID',0,65534)
+  if presetID then
+    found=BinarySearch(edcb.EnumRecPresetInfo(),{id=presetID},CompareFields('id'))
+  elseif dataID~=0 then
+    found=BinarySearch(edcb.EnumManuAdd(),aa,CompareFields('dataID'))
+  end
+  if found then
+    local useMargin=GetVarInt(post,'useDefMarginFlag')~=1 or nil
+    aa.recSetting={
+      batFilePath=found.recSetting.batFilePath,
+      recFolderList=found.recSetting.recFolderList,
+      partialRecFolder=found.recSetting.partialRecFolder,
+      recMode=GetVarInt(post,'recEnabled')~=1 and 5 or GetVarInt(post,'recMode',0,4),
+      noRecMode=GetVarInt(post,'recMode',0,4),
+      tuijyuuFlag=GetVarInt(post,'tuijyuuFlag')==1,
+      priority=GetVarInt(post,'priority',1,5),
+      pittariFlag=GetVarInt(post,'pittariFlag')==1,
+      suspendMode=GetVarInt(post,'suspendMode',0,4),
+      rebootFlag=GetVarInt(post,'rebootFlag')==1,
+      startMargin=useMargin and GetVarInt(post,'startMargin',-6*3600,6*3600),
+      endMargin=useMargin and GetVarInt(post,'endMargin',-6*3600,6*3600),
+      serviceMode=GetVarInt(post,'serviceMode')==1 and 0 or
+        1+16*(GetVarInt(post,'serviceMode_1',0,1) or 0)+32*(GetVarInt(post,'serviceMode_2',0,1) or 0),
+      continueRecFlag=GetVarInt(post,'continueRecFlag')==1,
+      tunerID=GetVarInt(post,'tunerID'),
+      partialRecFlag=GetVarInt(post,'partialRecFlag',0,1) or 0
+    }
+    if aa.recSetting.recMode and
+       aa.recSetting.priority and
+       aa.recSetting.suspendMode and
+       (not useMargin or aa.recSetting.startMargin and aa.recSetting.endMargin) and
+       aa.recSetting.tunerID
+    then
+      aa.dayOfWeekFlag=0
+      for i=7,1,-1 do
+        aa.dayOfWeekFlag=aa.dayOfWeekFlag*2+(GetVarInt(post,'checkDayOfWeek'..i)==1 and 1 or 0)
+      end
+      aa.startTime=(GetVarInt(post,'startHour',0,23) or 0)*3600+(GetVarInt(post,'startMin',0,59) or 0)*60+(GetVarInt(post,'startSec',0,59) or 0)
+      aa.durationSecond=((GetVarInt(post,'endHour',0,23) or 0)*3600+(GetVarInt(post,'endMin',0,59) or 0)*60+(GetVarInt(post,'endSec',0,59) or 0)+24*3600-aa.startTime)%(24*3600)
+      aa.onid,aa.tsid,aa.sid=GetVarServiceID(post,'serviceID')
+      if aa.onid then
+        local chInfo=BinarySearch(edcb.GetChDataList(),aa,CompareFields('onid',false,'tsid',false,'sid'))
+        if chInfo then
+          aa.stationName=chInfo.serviceName
+          --制御文字は消す
+          aa.title=(mg.get_var(post,'title') or ''):gsub('%c','')
+          return edcb.AddOrChgManuAdd(aa)
+        end
+      end
+    end
+  end
+  return false
+end
+
+ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+ct:Append(DOCTYPE_HTML4_STRICT..[=[
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>プログラム予約条件 - EDCB</title>
+</head>
+<body>
+]=])
+
+aa={dataID=GetVarInt(mg.request_info.query_string,'id') or 0}
+if aa.dataID==0 then
+  ct:Append('<h1>プログラム予約 新規条件追加</h1>\n<div id="main">\n')
+  post=AssertPost()
+  if post then
+    if mg.get_var(post,'addchg') then
+      ct:Append('  <div id="result">'..(AddOrChange(0,post) and '追加しました' or '入力値不正')..'</div>\n')
+    end
+  else
+    aa.dayOfWeekFlag=0
+    aa.startTime=0
+    aa.durationSecond=0
+    aa.title=''
+  end
+  edcb.htmlEscape=15
+else
+  ct:Append('<h1>プログラム予約 条件変更</h1>\n<div id="main">\n')
+  post=AssertPost()
+  if post then
+    if mg.get_var(post,'addchg') then
+      ct:Append('  <div id="result">'..(AddOrChange(aa.dataID,post) and '変更しました' or '入力値不正')..'</div>\n')
+    end
+  end
+  edcb.htmlEscape=15
+  aa=BinarySearch(edcb.EnumManuAdd(),aa,CompareFields('dataID')) or aa
+end
+
+if aa.dayOfWeekFlag then
+  ct:Append('  <dl>\n'
+    ..'    <dt>プリセット</dt><dd>\n'
+    ..'<form action="autoaddmanualinfo.html"><div>\n'
+    ..'<input type="hidden" name="id" value="'..aa.dataID..'"><select name="presetID">\n')
+  presetID=GetVarInt(mg.request_info.query_string,'presetID') or 65535
+  if aa.dataID==0 and presetID==65535 then
+    presetID=0
+  end
+  preset=false
+  rs=aa.recSetting
+  for i,v in ipairs(edcb.EnumRecPresetInfo()) do
+    if v.id==presetID then
+      preset=true
+      rs=v.recSetting
+    else
+      rs=rs or v.recSetting
+    end
+    ct:Append('<option value="'..v.id..'"'..Selected(v.id==presetID)..'>'..v.name..'\n')
+  end
+  if aa.dataID~=0 then
+    ct:Append('<option value="65535"'..Selected(not preset)..'>予約時\n')
+  end
+
+  ct:Append('</select> <button type="submit">録画設定にロード</button></div></form></dd>\n'
+    ..'    <dt>条件</dt><dd>\n'
+    ..'<form method="POST" action="autoaddmanualinfo.html?id='..aa.dataID..'">\n'
+    ..'<div><input type="hidden" name="presetID" value="'..(preset and presetID or 65535)..'">\n'
+    ..'<input type="hidden" name="ctok" value="'..CsrfToken()..'">\n'
+    ..'<input type="hidden" name="addchg" value="y"></div>\n'
+    ..'<div class="section"><h2>予約条件</h2>\n')
+  for i=1,7 do
+    ct:Append(' <label><input name="checkDayOfWeek'..i..'"'..Checkbox(aa.dayOfWeekFlag%2==1)..'>'..({'日','月','火','水','木','金','土'})[i]..'</label>')
+    aa.dayOfWeekFlag=math.floor(aa.dayOfWeekFlag/2)
+  end
+  endTime=(aa.startTime+aa.durationSecond)%(24*3600)
+  ct:Append('<br>\n'
+    ..'時間 <input type="text" size="2" name="startHour" value="'..math.floor(aa.startTime/3600)
+    ..'">:<input type="text" size="2" name="startMin" value="'..(math.floor(aa.startTime/60)%60)
+    ..'">:<input type="text" size="2" name="startSec" value="'..(aa.startTime%60)
+    ..'"> ～ <input type="text" size="2" name="endHour" value="'..math.floor(endTime/3600)
+    ..'">:<input type="text" size="2" name="endMin" value="'..(math.floor(endTime/60)%60)
+    ..'">:<input type="text" size="2" name="endSec" value="'..(endTime%60)
+    ..'"><br>\n'
+    ..'番組名<br><input type="text" name="title" value="'..aa.title..'" style="width:95%"><br>\n'
+    ..'サービス <select name="serviceID">\n')
+  found=false
+  for i,v in ipairs(SortServiceListInplace(SelectChDataList(edcb.GetChDataList()))) do
+    ct:Append('<option value="'..v.onid..'-'..v.tsid..'-'..v.sid..'"')
+    if v.onid==aa.onid and v.tsid==aa.tsid and v.sid==aa.sid then
+      found=true
+      ct:Append(' selected')
+    end
+    ct:Append('>('..NetworkType(v.onid)..') '..v.serviceName..'\n')
+  end
+  if not found and aa.onid then
+    ct:Append('<option value="'..aa.onid..'-'..aa.tsid..'-'..aa.sid..'" selected'
+      ..'>('..NetworkType(aa.onid)..') '..aa.stationName..'\n')
+  end
+  ct:Append('</select><br>\n'
+    ..'</div><div class="section"><h2>録画設定</h2>\n'..RecSettingTemplate(rs)..'</div>\n'
+    ..'<div><button type="submit">'..(aa.dataID==0 and '追加' or '変更')..'</button></div></form></dd>\n')
+
+  if aa.dataID~=0 then
+    ct:Append('    <dt>-</dt><dd>\n'
+      ..'<form method="POST" action="autoaddmanual.html"><div>\n'
+      ..'<input type="hidden" name="ctok" value="'..CsrfToken('autoaddmanual.html')..'">\n'
+      ..'<input type="hidden" name="del" value="'..aa.dataID..'">\n'
+      ..'<button type="submit">削除</button></div></form></dd>\n')
+  end
+  ct:Append('  </dl>\n')
+end
+
+ct:Append([=[
+</div>
+<div id="footer">
+  <a href="autoaddmanual.html]=]..(aa.dataID~=0 and '?id='..aa.dataID or '')..[=[">プログラム予約条件一覧</a>
+</div>
+</body>
+</html>
+]=])
+ct:Finish()
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))

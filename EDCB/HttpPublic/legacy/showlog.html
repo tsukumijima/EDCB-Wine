@@ -1,0 +1,102 @@
+-- vim:set ft=lua:
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+
+if mg.get_var(mg.request_info.query_string,'t')=='d' then
+  if SHOW_DEBUG_LOG then
+    logIndex=GetVarInt(mg.request_info.query_string,'i',0,99)
+    t=logIndex and 'EpgDataCap_Bon_DebugLog-'..logIndex..'.txt' or 'EpgTimerSrvDebugLog.txt'
+  end
+else
+  if SHOW_NOTIFY_LOG then
+    t='EpgTimerSrvNotify.log'
+  end
+end
+if t then
+  f=edcb.io.open(PathAppend(EdcbModulePath(),t),'rb')
+end
+
+if not f then
+  mg.write(Response(404,nil,nil,0)..'\r\n')
+else
+  ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
+  c=GetVarInt(mg.request_info.query_string,'c',0,1e7) or 1e7
+  page=GetVarInt(mg.request_info.query_string,'page',0) or 0
+  ct:Append(DOCTYPE_HTML4_STRICT..[=[
+<html lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1">
+<link rel="stylesheet" type="text/css" href="default.css">
+<title>]=]..t..[=[ - EDCB</title>
+</head>
+<body>
+<h1>]=]..t..[=[</h1>
+<div class="page-nav">
+  <a href="showlog.html?c=]=]..c..'&amp;page='..(page+1)..(t:find('D') and '&amp;t=d'..(logIndex and '&amp;i='..logIndex or '') or '')..[=[">↑↑</a>
+  <a href="showlog.html?c=]=]..c..'&amp;page='..math.max(page-1,0)..(t:find('D') and '&amp;t=d'..(logIndex and '&amp;i='..logIndex or '') or '')..[=[">↓↓</a>
+</div>
+<div id="main">]=])
+
+  fsize=f:seek('end')
+  edcb.htmlEscape=15
+  s=''
+  if not WIN32 then
+    --UTF-8
+    ofs=math.max(fsize-c*(page+1),0)
+    f:seek('set',ofs)
+    if ofs~=0 then
+      repeat
+        c=c-1
+        buf=f:read(1)
+      until not buf or #buf<1 or buf=='\n'
+    end
+    s=c>0 and f:read(page>0 and c or '*a') or ''
+    if page>0 then
+      --次の改行まで読む
+      x=''
+      repeat
+        buf=f:read(1) or ''
+        x=x..buf
+      until #buf<1 or buf=='\n' or #x>10000
+      s=s..x
+    end
+    s=EdcbHtmlEscape(s)
+  elseif fsize>=2 then
+    --UTF-16
+    ofs=math.floor(math.max(fsize/2-1-c*(page+1),0))
+    f:seek('set',2+ofs*2)
+    if ofs~=0 then
+      repeat
+        c=c-1
+        buf=f:read(2)
+      until not buf or #buf<2 or buf=='\n\0'
+    end
+    s=c>0 and f:read(page>0 and c*2 or '*a') or ''
+    if page>0 then
+      --次の改行まで読む
+      x=''
+      repeat
+        buf=f:read(2) or ''
+        x=x..buf
+      until #buf<2 or buf=='\n\0' or #x>10000
+      s=s..x
+    end
+    s=edcb.Convert('utf-8','utf-16le',s) or ''
+  end
+  s='\n'..s:gsub('\r?\n','<br>\n')
+  --タイムスタンプを装飾
+  s=s:gsub('\n(%[[^ <]+)','\n<span class="log-marker">%1</span>'):gsub('\n(2[^ <]+ [^ <]+)','\n<span class="log-marker">%1</span>')
+  ct:Append(s)
+  f:close()
+
+  ct:Append([=[
+</div>
+<div id="footer">
+  <a href="index.html">メニュー</a>
+</div>
+</body>
+</html>
+]=])
+  ct:Finish()
+  mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))
+end
