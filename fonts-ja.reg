@@ -1,0 +1,28 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes]
+"MS UI Gothic"="Noto Sans CJK JP"
+"MS Gothic"="Noto Sans CJK JP"
+"MS PGothic"="Noto Sans CJK JP"
+"MS Mincho"="Noto Serif CJK JP"
+"MS PMincho"="Noto Serif CJK JP"
+"Meiryo"="Noto Sans CJK JP"
+"Meiryo UI"="Noto Sans CJK JP"
+
+
+[HKEY_CURRENT_USER\Control Panel\Desktop]
+"FontSmoothing"="2"
+"FontSmoothingType"=dword:00000002
+"FontSmoothingGamma"=dword:000005DC
+"FontSmoothingOrientation"=dword:00000001
+"LogPixels"=dword:00000078
+
+
+[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink]
+"MS UI Gothic"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,61,00,6e,00,73,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"MS Gothic"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,61,00,6e,00,73,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"MS PGothic"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,61,00,6e,00,73,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"MS Mincho"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,65,00,72,00,69,00,66,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"MS PMincho"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,65,00,72,00,69,00,66,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"Meiryo"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,61,00,6e,00,73,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00
+"Meiryo UI"=hex(7):4e,00,6f,00,74,00,6f,00,20,00,53,00,61,00,6e,00,73,00,20,00,43,00,4a,00,4b,00,20,00,4a,00,50,00,00,00,00,00

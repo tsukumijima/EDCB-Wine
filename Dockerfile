@@ -7,13 +7,14 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # 必要なパッケージをインストール
-## 2024年2月現在の Wine 9.x 系には EpgTimerSrv のタスクトレイ表示のコンテキストメニューのフォントがガビガビな上に日本語が豆腐化する問題がある
-## Wine は近年バージョン更新が活発で毎バージョン間の変更も大きいため、当面動作確認が確実に取れている 8.x 系に固定する
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         fonts-noto-cjk \
+        fonts-noto-cjk-extra \
+        fonts-noto-color-emoji \
+        fontconfig \
         ncdu \
         language-pack-ja \
         locales \
@@ -49,10 +50,10 @@ RUN dpkg --add-architecture i386 && \
     wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources && \
     apt-get update && \
     apt-get install -y \
-        winehq-stable=8.0.2~jammy-1 \
-        wine-stable=8.0.2~jammy-1 \
-        wine-stable-amd64=8.0.2~jammy-1 \
-        wine-stable-i386=8.0.2~jammy-1 \
+        winehq-stable=10.0.0.0~jammy-1 \
+        wine-stable=10.0.0.0~jammy-1 \
+        wine-stable-amd64=10.0.0.0~jammy-1 \
+        wine-stable-i386=10.0.0.0~jammy-1 \
         winetricks && \
     apt-get -y autoremove && \
     apt-get -y clean && \
@@ -73,13 +74,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     dpkg-reconfigure -f noninteractive tzdata
 
 # 日本語環境を設定
-RUN fc-cache -f -v && \
-    im-config -n fcitx5 && \
-    locale-gen ja_JP.UTF-8
+RUN im-config -n fcitx5 && locale-gen ja_JP.UTF-8
 ENV GTK_IM_MODULE=xim \
     QT_IM_MODULE=fcitx5 \
     XMODIFIERS=@im=fcitx5 \
-    DefalutIMModule=fcitx5 \
     LANG=ja_JP.UTF-8 \
     LANGUAGE=ja_JP:ja \
     LC_ALL=ja_JP.UTF-8
@@ -98,11 +96,18 @@ ENV HOME=/home/ubuntu \
     WINEARCH=win64 \
     WINEPREFIX=/home/ubuntu/.wine64
 
-# Wine の初期化
+# 設定ファイル
 COPY --chmod=775 --chown=ubuntu:ubuntu ./wine-mount.sh /home/ubuntu/
+COPY --chown=ubuntu:ubuntu ./fonts-ja.reg /home/ubuntu/fonts-ja.reg
+COPY ./local-fonts.conf /etc/fonts/local.conf
+
+# Wine の初期化
 RUN winetricks settings fontsmooth=rgb && \
+    winetricks -q cjkfonts corefonts gdiplus && \
+    regedit /S fonts-ja.reg && \
     wineboot && \
     ./wine-mount.sh && \
+    fc-cache -f -v && \
     sudo rm -rf /tmp/*
 
 # Xfce のデスクトップ設定をコピー
