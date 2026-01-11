@@ -1,25 +1,15 @@
 -- vim:set ft=lua:
-dofile(mg.document_root..'\\api\\util.lua')
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
 
-function recSetting(r,post)
-  local presetID=GetVarInt(post,'presetID',0,65534)
-  if presetID then
-    r.recSetting=nil
-    for i,v in ipairs(edcb.EnumRecPresetInfo()) do
-      if v.id==presetID then
-        r.recSetting=v.recSetting
-        break
-      end
-    end
-  end
-  r.recSetting=getRecSetting(r.recSetting, post)
+function RecSetting(r,post)
+  r.recSetting=GetRecSetting(post)
   if r.recSetting then
     return r
   end
   return false
 end
 
-function eventInfo(r)
+function EventInfo(r)
   eventInfo=edcb.SearchEpg(r.onid, r.tsid, r.sid, r.eid)
   if eventInfo and eventInfo.startTime and eventInfo.durationSecond then
     r.title=eventInfo.shortInfo and eventInfo.shortInfo.event_name or ''
@@ -45,7 +35,7 @@ add=mg.get_var(post,'add')
 change=mg.get_var(post,'change')
 del=mg.get_var(post,'del')
 OneClick=GetVarInt(mg.request_info.query_string,'oneclick',0,1)==1
-toggle=GetVarInt(mg.request_info.query_string,'toggle',0,1)==1
+toggle=GetVarInt(mg.request_info.query_string,'toggle',0,1)
 
 if post then
   if add then
@@ -53,17 +43,17 @@ if post then
     tsid=GetVarInt(post, 'tsid') or 0
     sid=GetVarInt(post, 'sid') or 0
     eid=GetVarInt(post, 'eid') or 0
-    r=recSetting({onid=onid,tsid=tsid,sid=sid,eid=eid},post)
+    r=RecSetting({onid=onid,tsid=tsid,sid=sid,eid=eid},post)
     if r then
-      r=eventInfo(r)
+      r=EventInfo(r)
       if r then
         done=edcb.AddReserveData(r)
       else
         err='イベント情報が見つかりません'
       end
- 	else
+    else
       err='録画設定が正しくありません'
- 	end
+    end
   elseif change then
     r=edcb.GetReserveData(id)
     if r then
@@ -93,7 +83,7 @@ if post then
           err='不正な日時です'
         end
       else
-        r=recSetting(r,post)
+        r=RecSetting(r,post)
         if r then
           done=edcb.ChgReserveData(r)
         else
@@ -124,7 +114,7 @@ elseif OneClick then
       break
     end
   end
-  r=eventInfo(r)
+  r=EventInfo(r)
   if r then
     done=edcb.AddReserveData(r)
   else
@@ -134,13 +124,7 @@ elseif toggle then
   AssertCsrf(mg.request_info.query_string)
   r=edcb.GetReserveData(id)
   if r then
-    for i,v in ipairs(edcb.EnumRecPresetInfo()) do
-      if v.id==0 then
-        recMode=(v.recSetting.recMode==5 and 0 or v.recSetting.recMode)
-        break
-      end
-    end
-    r.recSetting.recMode=(r.recSetting.recMode==5 and recMode or 5)
+    r.recSetting.recMode=(toggle == 1 and r.recSetting.noRecMode or 5)
     done=edcb.ChgReserveData(r)
   else
     err='予約が見つかりません'
@@ -158,7 +142,6 @@ if done then
     end
   end
   r=edcb.GetReserveData(id)
-  rsdef=edcb.GetReserveData(0x7FFFFFFF)
 
   messege='<success>予約を'..((add or OneClick) and '追加' or '変更')..'しました</success>'
     ..'<reserveinfo><ID>'
@@ -175,12 +158,8 @@ if done then
     ..r.eid..'</eventID><comment>'
     ..r.comment..'</comment><overlapMode>'
     ..r.overlapMode..'</overlapMode>'
-    ..xmlRecSetting(r.recSetting, rsdef)
-    ..'<recFileNameList>'
-  for j,w in ipairs(r.recFileNameList) do
-    messege=messege..'<name>'..w..'</name>'
-  end
-  messege=messege..'</recFileNameList></reserveinfo>\r\n'
+    ..XmlRecSetting(r.recSetting)
+    ..'</reserveinfo>\r\n'
 elseif err then
   messege='<err>予約を'..(
         (add or OneClick)  and '追加'

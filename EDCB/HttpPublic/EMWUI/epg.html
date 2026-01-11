@@ -1,22 +1,18 @@
 -- vim:set ft=lua:
 dofile(mg.script_name:gsub('[^\\/]*$','')..'epg.lua')
 
-show=mg.get_var(mg.request_info.query_string,'show')
-tab=GetVarInt(mg.request_info.query_string,'tab',0,#NetworkIndex()) or 0
-date=GetVarInt(mg.request_info.query_string,'date',-10000,1000) or 0
+tab=GetVarInt(mg.request_info.query_string,'tab',0,#NetworkType()) or 0
+date=GetVarInt(mg.request_info.query_string,'date',-10000,1000) or GetVarDate(mg.request_info.query_string,'date') or 0
 hour=GetVarInt(mg.request_info.query_string,'hour',-1,27) or -1
 --hour=-1で現在時刻-MARGIN_HOUR時間を基準
-interval=GetVarInt(mg.request_info.query_string,'interval',0,100) or DEF_interval
+interval=GetVarInt(mg.request_info.query_string,'interval',0,100) or DEF_INTERVAL
 CH_COUNT=GetVarInt(mg.request_info.query_string,'chcount') or DEF_CH_COUNT
 pageIndex=GetVarInt(mg.request_info.query_string,'page',0,100000) or 0
 
 --UTC+9の今日の始まりの日付。現在時刻が深夜4時までは前日になることに注意
 baseDate=math.floor((utc9Now-4*3600)/24/3600)
-if date==0 then
-  m={(mg.get_var(mg.request_info.query_string,'date') or ''):match('^(%d%d%d%d)%-(%d?%d)%-(%d?%d)$')}
-  if #m==3 then
-    date=math.floor(TimeWithZone({year=m[1],month=m[2],day=m[3]})/24/3600)-baseDate
-  end
+if date>1000 then
+  date=math.floor(date/24/3600)-baseDate
 end
 Hour=hour<0 and math.floor(((utc9Now%(24*3600))/3600)-MARGIN_HOUR)%24 or hour
 if Hour<4-(hour<0 and MARGIN_HOUR or 0) then Hour=Hour+24 end
@@ -39,7 +35,7 @@ function hrefGene(href)
     ..((hour>=0 or href.hour and href.hour>=0) and '&amp;hour='..(href.hour or hour) or '')
     ..((href.chpage~=0 and (pageIndex~=0 or href.chpage)) and '&amp;page='..(href.chpage or pageIndex) or '')
     ..(CH_COUNT~=DEF_CH_COUNT and '&amp;chcount='..CH_COUNT or '')
-    ..(interval~=DEF_interval and '&amp;interval='..interval or '')
+    ..(interval~=DEF_INTERVAL and '&amp;interval='..interval or '')
   return s
 end
 
@@ -55,14 +51,12 @@ minTime=nil
 maxTime=nil
 
 st,NetworkList={},{}
-for i,v in ipairs(NetworkIndex()) do
+for i,v in ipairs(NetworkType()) do
   NetworkList[i]=false
 end
 for i,v in ipairs(CustomServiceList()) do
-  if oneseg or not v.partialReceptionFlag then
-    NetworkList[NetworkIndex(v)]=true
-  end
-  if tab==NetworkIndex(v)-1 then
+  NetworkList[NetworkIndex(v.onid, ONESEG and v.partialReceptionFlag)]=true
+  if tab==NetworkIndex(v.onid, v.partialReceptionFlag)-1 then
     table.insert(st, v)
     mmt=edcb.GetEventMinMaxTime(v.onid, v.tsid, v.sid)
     if mmt then
@@ -89,12 +83,9 @@ end
 
 ct={
   title='番組表',
-  css=epgcss(),
-  js=epgjs(pageTime-9*3600,(NOW and '$(function(){$(".station>div>div:first-child").each(function(){'..(date==0 and 'end($(this), true);});jump();' or 'end($(this));});')..'setInterval("line()", 1000);});' or ''),(NOW and pageTime+(interval-9)*3600 or false)),
-  menu=epgMenuTemplate(true),
-  progres=true,
-  macro=sidePanel,
-  searchlinks=true
+  css=EpgCssTemplate(),
+  menu=EpgMenuTemplate(),
+  searchlinks=not SIDE_PANEL
 }
 
 ct.subheader='<div id="subheader">\n'
@@ -105,12 +96,12 @@ ct.subheader='<div id="subheader">\n'
   ..(NOW and 'id="now' or 'href="epg.html'..hrefGene({date=0,hour=-1})..'"')
   ..'"><i class="material-icons">radio_button_checked</i></a></div>\n'
 
-  ..'<div id="onid" class="pulldown dividers navigation__item mdl-color-text--primary">'..(NetworkIndex()[tab+1] or '')..'</div>\n'
+  ..'<div id="onid" class="pulldown dividers navigation__item mdl-color-text--primary">'..(NetworkType()[tab+1] or '')..'</div>\n'
 
 main={'<div class="menu"><ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="onid">\n'}  --メニューはサブヘッダーに入れたらダメゼッタイ
 for i,v in ipairs(NetworkList) do
   if v then
-    table.insert(main, '<li><a class="mdl-menu__item'..(tab==i-1 and ' mdl-color-text--accent' or '" href="epg.html'..hrefGene({tab=i-1,chpage=0}))..'">'..NetworkIndex()[i]..'</a></li>\n')
+    table.insert(main, '<li><a class="mdl-menu__item'..(tab==i-1 and ' mdl-color-text--accent' or '" href="epg.html'..hrefGene({tab=i-1,chpage=0}))..'">'..NetworkType()[i]..'</a></li>\n')
   end
 end
 table.insert(main, '</ul>')
@@ -125,7 +116,7 @@ if 0<CH_COUNT then
 
   if CH_COUNT<n then
     ct.subheader=ct.subheader..'<div id="page" class="pulldown dividers navigation__item mdl-color-text--primary">ページ '..(pageIndex+1)..'</div>\n'
-    
+
     table.insert(main, '<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="page">\n')
     for i=0, math.ceil(n/CH_COUNT-1) do
       table.insert(main, '<li><a class="mdl-menu__item'..(pageIndex==i and ' mdl-color-text--accent' or '" href="epg.html'..hrefGene({chpage=i}))..'">ページ '..(i+1)..'</a></li>\n')
@@ -158,7 +149,7 @@ if minTime then
     ..'<input type="hidden" name="hour" value="4">'
     ..(pageIndex~=0 and '<input type="hidden" name="page" value="'..pageIndex..'">' or '')
     ..(CH_COUNT~=DEF_CH_COUNT and '<input type="hidden" name="chcount" value="'..CH_COUNT..'">' or '')
-    ..(interval~=DEF_interval and '<input type="hidden" name="interval" value="'..interval..'">' or '')
+    ..(interval~=DEF_INTERVAL and '<input type="hidden" name="interval" value="'..interval..'">' or '')
     ..'</form></div></li>\n')
 
   minTime=math.max(minTime, pageTime-2*24*3600)
@@ -198,7 +189,7 @@ ct.side='<input type="checkbox" class="hidden" id="a">\n'
   ..'<label class="drop-down mdl-navigation__link" for="a">サービス</label>\n'
   ..'<ul>\n'
 
-WIDE={ 
+WIDE={
   --少し拡幅する
   ['32391-32391-23608']=true, --MX
 }
@@ -206,7 +197,7 @@ ctt,Head={},{}
 n=0
 pagemin=pageIndex*CH_COUNT+1
 pagemax=(pageIndex+1)*CH_COUNT
-SubChConcat=tonumber(edcb.GetPrivateProfile('GUIDE','subChConcat',true,ini))~=0
+SubChConcat=tonumber(edcb.GetPrivateProfile('GUIDE','subChConcat',true,INI))~=0
 for i,v in ipairs(st) do
   if not v.subCh then
     n=n+1
@@ -219,8 +210,8 @@ for i,v in ipairs(st) do
         if j>#st or j>i and not st[j].subCh then
           column=j-i
           id=v.onid..'-'..v.tsid..'-'..v.sid
-          ct.side=ct.side..'<li><label class="mdl-switch mdl-js-switch" for="c-'..id..'"><input type="checkbox" id="c-'..id..'" class="stationToggle mdl-switch__input" value="'..id..'"'..(v.hide and '' or ' checked')..'><span class="mdl-switch__label">'..v.service_name..'</span></label></li>\n'
-          table.insert(Head, '<a class="station id-'..id..(SubChConcat and WIDE[id] and ' wide' or '')..' mdl-typography--body-2 mdl-color-text--primary-contrast"'..(v.hide and ' style="display:none;"' or '')..' href="epgweek.html?onid='..v.onid..'&amp;tsid='..v.tsid..'&amp;sid='..v.sid..(interval~=25 and '&interval='..interval or '')..'"><img src="'..PathToRoot()..'api/logo?onid='..v.onid..'&amp;sid='..v.sid..'">'..v.service_name..'</a>\n')
+          ct.side=ct.side..'<li><label class="mdl-switch mdl-js-switch" for="c-'..id..'"><input id="c-'..id..'" class="stationToggle mdl-switch__input"'..Checkbox(not v.hide,id)..'><span class="mdl-switch__label">'..v.service_name..'</span></label></li>\n'
+          table.insert(Head, '<a class="station id-'..id..(SubChConcat and WIDE[id] and ' wide' or '')..' mdl-typography--body-2 mdl-color-text--primary-contrast"'..(v.hide and ' style="display:none;"' or '')..' href="epgweek.html?id='..v.onid..'-'..v.tsid..'-'..v.sid..(interval~=25 and '&interval='..interval or '')..'"><img class="logo" src="'..PathToRoot()..'api/logo?onid='..v.onid..'&amp;sid='..v.sid..'"><span>'..v.service_name..'</span></a>\n')
           table.insert(ctt, '<div class="station id-'..id..(SubChConcat and WIDE[id] and ' wide' or '')..'"'..(v.hide and ' style="display:none;"' or '')..' data-service_id="'..id..'" data-service="'..v.service_name..'">\n')
           break
         end
@@ -233,17 +224,17 @@ for i,v in ipairs(st) do
     table.insert(ctt, '<div id="sid-'..v.sid..'">')
     for j,w in ipairs(v.et) do
       startTime=TimeWithZone(w.startTime)
-      startPx=math.min(math.floor((startTime-pageTime)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+      startPx=math.min(math.floor((startTime-pageTime)/60), 60*interval)
       endTime=w.durationSecond and startTime+w.durationSecond or (j<#v.et and TimeWithZone(v.et[j+1].startTime) or startTime) --終了時間未定
-      endPx=math.min(math.floor((endTime-pageTime)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+      endPx=math.min(math.floor((endTime-pageTime)/60), 60*interval)
       if startPx-lastPx>0 then
         if not v.subCh then
-          table.insert(ctt, '<div class="cell" data-endtime="'..(startTime-9*3600)..'" style="height:'..(startPx-lastPx)..'px;"><div class="content-wrap nothing"><div class="content'..(NOW and date==0 and startTime<=utc9Now and ' end' or '')..'"></div></div></div>\n')
+          table.insert(ctt, '<div class="cell" data-endtime="'..(startTime-9*3600)..'" style="--h:'..(startPx-lastPx)..';"><div class="content-wrap nothing"><div class="content'..(NOW and date==0 and startTime<=utc9Now and ' end' or '')..'"></div></div></div>\n')
         end
         total=total+startPx-lastPx
         lastPx=startPx
       end
-      if endPx-lastPx>2 then
+      if endPx-lastPx>0 then
         --イベントグループのサブでないか
         if not w.eventGroupInfo or #w.eventGroupInfo.eventDataList~=1 or
            w.eventGroupInfo.eventDataList[1].onid==w.onid and
@@ -268,16 +259,16 @@ for i,v in ipairs(st) do
             end
           end
 
-          op.url='epginfo.html'..hrefGene()..'&amp;onid='..w.onid..'&amp;tsid='..w.tsid..'&amp;sid='..w.sid..(w.past and '&amp;startTime='..startTime or '&amp;eid='..w.eid)
-          table.insert(ctt, epgcell(w, op))
+          op.url='epginfo.html'..hrefGene()..'&amp;id='..w.onid..'-'..w.tsid..'-'..w.sid..'-'..(w.past and startTime or w.eid)
+          table.insert(ctt, CellTemplate(w, op))
 
           total=total+endPx-lastPx
           lastPx=endPx
         end
       end
     end
-    if not v.subCh and total<interval*60*ONE_MIN_PX then
-      table.insert(ctt, '<div class="cell" style="height:'..(interval*60*ONE_MIN_PX-total)..'px;top:'..total..'px;"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
+    if not v.subCh and total<interval*60 then
+      table.insert(ctt, '<div class="cell" style="--h:'..(interval*60-total)..';top:'..total..'px;"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
     end
     table.insert(ctt, '</div>')
     if i==#st or not st[i+1].subCh then
@@ -296,7 +287,7 @@ ct.side=ct.side..'</ul>\n'
   for i=0,15 do
     nibble1=edcb.GetGenreName(i*256+255)
     if nibble1~='' then
-      ct.side=ct.side..'<li><label class="mdl-radio mdl-js-radio" for="g-'..(i*256+255)..'"><input type="radio" id="g-'..(i*256+255)..'" class="genreToggle mdl-radio__button" name="genreToggle" value=".'..CATEGORY[i+1]..'"><span class="mdl-radio__label">'..nibble1..'</span></label></li>\n'
+      ct.side=ct.side..'<li><label class="mdl-radio mdl-js-radio" for="g-'..(i*256+255)..'"><input type="radio" id="g-'..(i*256+255)..'" class="genreToggle mdl-radio__button" name="genreToggle" value=".cont-'..(i+1)..'"><span class="mdl-radio__label">'..nibble1..'</span></label></li>\n'
     end
   end
 ct.side=ct.side..'</ul>\n<div class="drawer-separator"></div>\n'
@@ -305,7 +296,7 @@ ct.side=ct.side..'</ul>\n<div class="drawer-separator"></div>\n'
 
 table.insert(main, '</div><main class="sidePanel-container mdl-layout__content">\n'
 
-  ..(sidePanel and sidePanelTemplate() or '')
+  .. SidePanelTemplate()
 
   ..'<div id="tv-guide-container"><div id="tv-guide">'
   ..'<div id="tv-guide-header" class="mdl-color--primary mdl-shadow--4dp">\n<div class="hour-container"></div>\n'..table.concat(Head)..'</div>\n'
@@ -322,12 +313,13 @@ ct.main=table.concat(main)..(NOW and '<div id="line"><span></span></div>' or '')
 
   ..table.concat(ctt)
   ..'</div>\n</div></div>\n'
-  ..'<form id="autoepg" method="POST" target="_blank" action="autoaddepginfo.html?epg=&amp;tab='..tab..'&amp;date='..date..(hour>=0 and '&amp;hour='..hour or '')..(interval~=25 and '&amp;interval='..interval or '')..(pageIndex~=0 and '&amp;chpage='..pageIndex or '')..(CH_COUNT~=DEF_CH_COUNT and '&amp;chcount='..CH_COUNT or '')..'">\n'
+  ..'<form id="autoepg" method="POST" action="autoaddepginfo.html?epg=&amp;tab='..tab..'&amp;date='..date..(hour>=0 and '&amp;hour='..hour or '')..(interval~=25 and '&amp;interval='..interval or '')..(pageIndex~=0 and '&amp;chpage='..pageIndex or '')..(CH_COUNT~=DEF_CH_COUNT and '&amp;chcount='..CH_COUNT or '')..'">\n'
   ..'<input type="hidden" name="ctok" value="'..CsrfToken('autoaddepginfo.html')..'">\n'
   ..'<input type="hidden" name="andKey">\n'
   ..'<input type="hidden" name="serviceList">\n'
   ..'</form>\n'
+  ..EpgJsTemplate(pageTime-9*3600,NOW,date==0,(NOW and pageTime+(interval-9)*3600 or false))
 
-ct=template(ct)
+ct=Template(ct)
 
-mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))

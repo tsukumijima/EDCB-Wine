@@ -9,9 +9,7 @@ ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
 ct:Append(DOCTYPE_HTML4_STRICT..[=[
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="viewport" content="initial-scale=1">
-<link rel="stylesheet" type="text/css" href="default.css">
+]=]..DefaultHeadContents()..[=[
 <title>EDCB Legacy WebUIについて - EDCB</title>
 </head>
 <body>
@@ -28,37 +26,50 @@ ct:Append(DOCTYPE_HTML4_STRICT..[=[
     <a href="showlog.html?t=d&amp;c=10000">デバッグ出力</a>や<a href="index.html">メニュー</a>のシステムスタンバイ機能や<a href="setting.html">設定メニュー</a>からの設定の変更はデフォルトで無効化しています。<br>
     必要に応じてutil.luaの定数定義を編集して有効にしてください。
   </p><p>
-    トランスコード機能(xcodeボタン)や視聴機能(viewボタン)を利用する場合は、<a href="https://ffmpeg.org/">ffmpeg</a>や<a href="https://github.com/rigaya/QSVEnc">QSVEnc</a>などのトランスコーダーと
-    <a href="https://github.com/xtne6f/tsreadex">tsreadex</a>とをEDCB直下のToolsフォルダ(Windows以外では/usr/local/binなどパスの通った場所)に用意してください。<br>
-    既定ではHLS再生が有効なので<a href="https://github.com/xtne6f/tsmemseg">tsmemseg</a>も必要です。字幕表示のため"-d"オプション付き(master-with-dブランチ)のものを用意してください。<br>
-    後述のデータ放送の表示には<a href="https://github.com/xtne6f/psisiarc">psisiarc</a>も必要です。<br>
+    トランスコード機能(xcodeボタン)や視聴機能(viewボタン)を利用する場合は、<a rel="noreferrer" href="https://ffmpeg.org/">ffmpeg</a>や<a rel="noreferrer" href="https://github.com/rigaya/QSVEnc">QSVEnc</a>などのトランスコーダーと
+    <a rel="noreferrer" href="https://github.com/xtne6f/tsreadex">tsreadex</a>とをEDCB直下のToolsフォルダ(Windows以外では/usr/local/binなどパスの通った場所)に用意してください。<br>
+    既定ではHLS再生が有効なので<a rel="noreferrer" href="https://github.com/xtne6f/tsmemseg">tsmemseg</a>も必要です。字幕表示のため"-d"オプション付き(master-with-dブランチ)のものを用意してください。<br>
+    後述のデータ放送の表示には<a rel="noreferrer" href="https://github.com/xtne6f/psisiarc">psisiarc</a>も必要です。<br>
     また、必要に応じてutil.luaの定数定義を編集してください。<br>
     トランスコーダーなどのバージョンはとくに指定しませんが、なるべく新しいものを用意してください。<br>
     ブラウザの制限により自動再生されないことがあるので、その場合は再生画面をクリックやタップしてください。
   </p><p>
-    <a href="https://github.com/ts-live/ts-live">TS-Live!</a>のWebAssemblyモジュールを利用してブラウザ上でMPEG2を直接再生できます。<br>
-    利用する場合は<a href="https://github.com/xtne6f/ts-live/tree/main/public/wasm">ts-live@xtne6f/public/wasm</a>からts-live.jsとts-live.wasmを取得してこのWebUIに配置し、トランスコードオプションで「tslive」を選んでください。<br>
-    WebGPUが利用できること、localhostからのアクセス等セキュアコンテキストであること(<a href="#footer">環境情報</a>)が必要です。
-  </p><p>
+    <a rel="noreferrer" href="https://github.com/ts-live/ts-live">TS-Live!</a>のWebAssemblyモジュールを利用してブラウザ上でMPEG2の再生やサムネイル画像の表示ができます
+    (このWebUIに配置済みのものは<a rel="noreferrer" href="https://github.com/xtne6f/ts-live/tree/main/public/wasm">ts-live@xtne6f/public/wasm</a>)。<br>
+    利用する場合はトランスコードオプションで「TS-Live!」を選んでください。<br>
+    MPEG2の再生にはWebGPUが利用できること、localhostからのアクセス等セキュアコンテキストであること(<a href="#footer">環境情報</a>)が必要です。<br>
+    外部からWebUIにセキュアコンテキストでアクセスするには自己署名証明書を設定してHTTPSとしてアクセスするか、SSHポートフォワーディングでlocalhostにポート転送するなどしてください。<br>
+    安全のため外部からアクセスするための設定はじゅうぶん慎重に行ってください。<br>
+    LANなどでとくに暗号化がいらない場合は、Windowsに限りますがnetshコマンドを利用してポート転送できます。
+  </p><pre style="font-size:small">
+  [localhostの15510にポート転送する設定を追加する例(要管理者権限)]
+  &gt; netsh interface portproxy add v4tov4 listenport=15510 connectaddress={EDCBのあるPCのIPv4アドレス} connectport=5510
+  [設定を削除]
+  &gt; netsh interface portproxy del v4tov4 listenport=15510
+  [現在の設定状態を表示]
+  &gt; netsh interface portproxy show all
+</pre><p>
     視聴機能を利用する場合は、EpgDataCap_Bonなどの<a href="setting_app_network.html">TCP送信先</a>にSrvPipeを追加しておく必要があります。<br>
     予約一覧にあるviewボタンは起動済みのEpgDataCap_Bonなどに接続して視聴するものです。<br>
     リスト番組表にあるviewボタンはNetworkTVモードによりEpgDataCap_Bonなどを起動して視聴するものです。<br>
     NetworkTVモードでは<a href="setting_view_bon.html">視聴に使用するBonDriver</a>をEpgTimerSrv設定で指定しておく必要があります。
   </p><p>
-    HLS再生時や<a href="https://github.com/xtne6f/b24tovtt">b24tovtt</a>出力のWebVTTが配置されたメディアファイル再生時は、<a href="https://github.com/monyone/aribb24.js">aribb24.js</a>による字幕表示ができます。<br>
+    HLS再生時や<a rel="noreferrer" href="https://github.com/xtne6f/b24tovtt">b24tovtt</a>出力のWebVTTが配置されたメディアファイル再生時は、<a rel="noreferrer" href="https://github.com/monyone/aribb24.js">aribb24.js</a>による字幕表示ができます。<br>
     字幕つき全画面表示は再生画面の左上隅あたりをクリックやタップしてください。
   </p><p>
-    トランスコード時や視聴時、psisiarc出力の.pscファイルが配置されたメディアファイル再生時は、<a href="https://github.com/otya128/web-bml">web-bml</a>によるデータ放送の表示ができます。<br>
+    トランスコード時や視聴時、psisiarc出力の.pscファイルが配置されたメディアファイル再生時は、<a rel="noreferrer" href="https://github.com/otya128/web-bml">web-bml</a>によるデータ放送の表示ができます。<br>
     ※指定サービス対象データに「データカルーセルを含める」必要があります。
   </p><p>
-    トランスコード時や視聴時、psisiarc出力の.pscファイルが配置されたメディアファイル再生時は、TVTestのNicoJKプラグインのログや実況の表示ができます。おもに録画用アプリをTVTestにしている人向けの機能です。<br>
+    トランスコード時や視聴時、psisiarc出力の.pscファイルか番組情報の.program.txtファイルが配置されたメディアファイル再生時は、TVTestのNicoJKプラグインのログや実況の表示ができます。<br>
+    番組情報ファイルは例えば"foo.mp4"というメディアファイルに対して"foo.program.txt"という名前で配置してください("foo.mp4.program.txt"ではありません)。<br>
     ※ログの表示にはutil.luaの JKRDLOG_PATH 定数の編集が必要です。<br>
-    ※実況の表示にはプラグインの commentShareMode の設定が必要です。<br>
+    ※実況の表示には<a rel="noreferrer" href="https://github.com/xtne6f/jkcnsl">jkcnsl</a>の2025年4月以降のものを用意してutil.luaの JKCNSL_PATH 定数を編集するか、NicoJKプラグインの commentShareMode の設定が必要です。<br>
     再生画面の中央やや下あたりをマウスオーバーやタップすると実況コメントを入力できます。"@sw"と入力して投稿すると投稿先がNX-Jikkyo・避難所に切り替わります。
   </p><p>
     ライブラリ機能などにある「DL」や「→DL」はメディアファイルを再生ではなく直接ダウンロードするためのリンクです。<br>
     ネットワークアドレスに対応した再生ソフトなどで利用できます。<br>
-    MP4ファイルにかぎり<a href="https://github.com/xtne6f/psisimux">psisimux</a>を用意することで「Mux-to-TS」リンクにより上記のWebVTTや.pscファイルを結合してTSファイルに変換できます。
+    ダウンロードしたメディアファイルは「OpenFile」リンクで開いて再生することもできます(データ通信量節約などに)。TSファイルについてはトランスコードしたものを開いてください。<br>
+    MP4ファイルにかぎり<a rel="noreferrer" href="https://github.com/xtne6f/psisimux">psisimux</a>を用意することで「Mux-to-TS」リンクにより上記のWebVTTや.pscファイルを結合してTSファイルに変換できます。
   </p><p>
     (Windowsのみ)tsreadex.exeを"edcbnosuspend.exe"という名前でコピーしてToolsフォルダに用意すると、<a href="index.html">メニュー</a>に「録画後動作を抑制」ボタンが現れます。<br>
     このedcbnosuspend.exeをEpgTimerSrv設定の「録画後動作の抑制条件」に指定しておくことで録画後動作を一時的に抑制することができます。<br>
@@ -91,6 +102,7 @@ ct:Append(DOCTYPE_HTML4_STRICT..[=[
   |    |---psisiarc.exe
   |    |---psisimux.exe
   |    |---tsmemseg.exe
+  |    |---tspgtxt.exe
   |    |---tsreadex.exe
   |    |---ffmpeg/
   |    |    |---ffmpeg.exe
@@ -103,6 +115,10 @@ ct:Append(DOCTYPE_HTML4_STRICT..[=[
   |    |
   |    |---QSVEncC/
   |    |    |---QSVEncC.exeまたはQSVEncC64.exe
+  |    |    :
+  |    |
+  |    |---VCEEncC/
+  |    |    |---VCEEncC.exeまたはVCEEncC64.exe
   |    :    :
   |
   |---EpgTimer.exe
@@ -111,14 +127,14 @@ ct:Append(DOCTYPE_HTML4_STRICT..[=[
   |---zlib52.dll
   :
 </pre><p>
-    スクリプトはLua 5.2を使用しています。<a href="https://www.lua.org/manual/5.2/">Lua 5.2 Reference Manual</a> (<a href="http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html">有志による日本語訳</a>)<br>
+    スクリプトはLua 5.2を使用しています。<a rel="noreferrer" href="https://www.lua.org/manual/5.2/">Lua 5.2 Reference Manual</a> (<a rel="noreferrer" href="http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html">有志による日本語訳</a>)<br>
     EDCBによる追加機能はDocument/Readme_Mod.txtの「Lua edcbグローバル変数の仕様」を参照してください。
   </p><p>
     無保証です。セキュリティに気をつけてください。スクリプトの改変、再配布などすべて自由です。<br>
     このWebUIはASCIIの英数記号のフォルダ名であれば公開フォルダ配下で任意にリネームやコピーできます。
   </p><p>
-    スクリプト作成などにあたって特に<a href="https://github.com/EMWUI/EDCB_Material_WebUI">EDCB Material WebUI</a>を参考にしています。<br>
-    トランスコード機能は「<a href="http://nana2.sarashi.com/">Tvmaid</a> MAYA ストリーミング設定」や<a href="https://github.com/Chinachu/Chinachu">Chinachu</a>や<a href="https://github.com/tsukumijima/TVRemotePlus">TVRemotePlus</a>を参考にしました。
+    スクリプト作成などにあたって特に<a rel="noreferrer" href="https://github.com/EMWUI/EDCB_Material_WebUI">EDCB Material WebUI</a>を参考にしています。<br>
+    トランスコード機能は「<a rel="noreferrer" href="http://nana2.sarashi.com/">Tvmaid</a> MAYA ストリーミング設定」や<a rel="noreferrer" href="https://github.com/Chinachu/Chinachu">Chinachu</a>や<a rel="noreferrer" href="https://github.com/tsukumijima/TVRemotePlus">TVRemotePlus</a>を参考にしました。
   </p><dl>
     <dt>環境情報</dt>
     <dd>

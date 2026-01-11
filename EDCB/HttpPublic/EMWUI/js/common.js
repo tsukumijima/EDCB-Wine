@@ -1,1359 +1,1676 @@
-var PresetList, ReserveAutoaddList, Snackbar;
-var isTouch = navigator.platform.indexOf("Win") != 0  && ('ontouchstart' in window);
-var week = ['日', '月', '火', '水', '木', '金', '土'];
+const isMobile = navigator.userAgentData ? navigator.userAgentData.mobile : navigator.userAgent.match(/iPhone|iPad|Android.+Mobile/);
+const isTouch = 'ontouchstart' in window;
 
-function showSpinner(visible){
-	if (visible){
-		$('#spinner').addClass('is-visible').children().addClass('is-active');
-	}else{
-		$('#spinner').removeClass('is-visible').children().removeClass('is-active');
-	}
-}
+const isSmallScreen = () => window.matchMedia(window.MaterialLayout.prototype.Constant_.MAX_WIDTH).matches;
+const showSpinner = (visible = false) => $('#spinner .mdl-spinner').toggleClass('is-active', visible);
+const errMessage = xml => xml.find('err').each((i, e) => Snackbar(`${i==0 ? 'Error : ' : ''}${$(e).text()}`));
+const zero = (e, n = 2) => (Array(n).join('0')+e).slice(-n);
+let Snackbar = d => setTimeout(Snackbar, 1000, d);
 
-function errMessage(xml){
-	xml.find('err').each(function(i){
-		Snackbar.MaterialSnackbar.showSnackbar({message: (i==0 ? 'Error : ' : '')+$(this).text()});
-	});
+$.fn.extend({
+	mdl_prop(prop, enable){
+		this.prop(prop, enable).parent().toggleClass(`is-${prop}`, enable);
+		return this;
+	},
+	txt(a){
+		return this.children(a).text();
+	},
+	num(a){
+		return Number(this.txt(a));
+	},
+});
+
+const Info = {
+	day: ['日', '月', '火', '水', '木', '金', '土'],
+	EventInfo: {},
+	recinfoEX: {},
 }
 
 //検索バー表示
-function saerchbar(){
-	$('main>.mdl-layout__content').scroll(function(){
-		if ($('main>.mdl-layout__content').scrollTop() > 0){
-			$('.serch-bar').removeClass('scroll');
-			$('main').addClass('serch-bar');
-		}else{
-			$('.serch-bar').addClass('scroll');
-			$('main').removeClass('serch-bar');
-		}
-	});
-}
+const saerchbar = () => $('main>.mdl-layout__content').scroll(() => {
+	$('.serch-bar').toggleClass('scroll', !$('main>.mdl-layout__content').scrollTop() > 0);
+	$('main').toggleClass('serch-bar', $('main>.mdl-layout__content').scrollTop() > 0);
+});
 
 //検索等のリンクを生成
-function createSearchLinks(obj){
-	var target = $(obj).find('.search-links');
-	if (target.length == 1 && !target.is('.search-links-created')){
-		var d = target.data();
-		var title = encodeURIComponent(d.title);
-		var service = encodeURIComponent(d.service);
-		var dates = encodeURIComponent(d.dates);
-		var details = encodeURIComponent(d.details.replace(/%br%/g, '\n'));
- 		target.addClass('search-links-created').after('<a class="mdl-button mdl-button--icon" href="search.html?andkey=' + title + '"><i class="material-icons">search</i></a>'
-			+ '<a class="mdl-button mdl-button--icon" href="https://www.google.co.jp/search?q=' + title + '" target="_blank"><img class="material-icons" src="img/google.png" alt="Google検索"></a>'
-			+ '<a class="mdl-button mdl-button--icon" href="https://www.google.co.jp/search?q=' + title + '&amp;btnI=Im+Feeling+Lucky" target="_blank"><i class="material-icons">sentiment_satisfied</i></a>'
-			+ '<a class="mdl-button mdl-button--icon mdl-cell--hide-phone mdl-cell--hide-tablet" href="https://www.google.com/calendar/render?action=TEMPLATE&amp;text=' + title + '&amp;location=' + service
-				+ '&amp;dates=' + dates + '&amp;details=' + details + calendar_op +'" target="_blank"><i class="material-icons">event</i></a>');
-	}
-}
-
-//タブ移動
-function tab(tab){
-	if (tab.length > 0 && !document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement){
-		var panel = tab.attr('href');
-		if (tab.hasClass('mdl-layout__tab')){
-			$('.mdl-layout__tab, .mdl-layout__tab-panel').removeClass('is-active');
-			$('main').scrollTop(0);
-		}else{
-			$('.mdl-tabs__tab, .mdl-tabs__panel').removeClass('is-active');
-		}
-		tab.addClass('is-active');
-		$(panel).addClass('is-active');
-		if (panel == '#movie' && !$('#video').data('load')){
-			if (!$('#video').data('public')) loadMovie($('#video'));
-			$('#video').trigger('load').data('load', true);
-		}
-	}
-}
-
-//通知バッチ
-function badgeNotify(){
-	var count = $('[id^=notify_]').length;
-	if (count == 0){
-		$('#notification i').removeClass('mdl-badge').text('notifications_none');
-		$('#noNotify').show();
-	}else{
-		$('#notification i').addClass('mdl-badge').text('notifications');
-		$('#noNotify').hide();
-	}
-	$('#notification i').attr('data-badge', count);
-}
-
-//通知保存
-function saveNotify(data, remove){
-	var list = localStorage.getItem('notifications') ? JSON.parse(localStorage.getItem('notifications')) : new Array();
-
-	if (remove){
-		list.some(function(v, i){
-			if (v.eid == data.eid) list.splice(i,1);
-		});
-	}else{
-		list.push(data);
+class SearchLinks {
+	#d;
+	#defaults = [
+		//{href : d => `${d._title}`, class: '', local: true, icon: '', src: ''},
+		{href: d => `search.html?andkey=${d._title}`, local: true, icon: 'search'},
+		{href: d => `https://www.google.co.jp/search?q=${d._title}`, src:'img/google.png'},
+		{href: d => `https://www.google.co.jp/search?q=${d._title}&btnI=Im+Feeling+Lucky`, icon: 'sentiment_satisfied'},
+		{href: d => `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ConvertZtoH(d.title))}&location=${encodeURIComponent(ConvertZtoH(d.service))}&dates=${d.dates}&details=${d.details}${Links.calendar.op}`, class: "mdl-cell--hide-phone mdl-cell--hide-tablet", icon: 'event'},
+	];
+	constructor(d){
+		this.#d = {...d};
+		this.#d._title = encodeURIComponent(ConvertZtoH(d.title).replace(/(?!^【.*?】$)[＜【\[].*?[＞】\]]|（.*?版）/g, ''));
+		this.#d.dates = encodeURIComponent(d.dates??`${ConvertTime(d.starttime, 'ISO')}/${ConvertTime(d.endtime, 'ISO')}`);
+		this.#d.details = encodeURIComponent((d.details??Links.calendar.details.replace(/%text_char%/g, d.text)).replace(/%br%/g, '\n'));
 	}
 
-	localStorage.setItem('notifications', JSON.stringify(list));
-}
-//通知リスト削除
-function delNotify(data, noSnack){
-	clearTimeout(data.timer);
-	saveNotify(data, true);
-	$('.eid_' + data.eid + ' .notify_icon,#notify_' + data.eid).remove();
-	$('.notify_'+ data.eid).data('notification', false).children().text('add_alert');
-
-	badgeNotify();
-	if (!noSnack) Snackbar.MaterialSnackbar.showSnackbar({message: '削除しました'});
-}
-
-//通知登録
-var NotifySound = new Audio( root + "video/notification.mp3");
-NotifySound.volume = 0.2;
-function creatNotify(data, save){
-	if (save){
-		saveNotify(data);
-		Snackbar.MaterialSnackbar.showSnackbar({message: '追加しました'});
+	#link = d => $('<a>', {class: `mdl-button mdl-button--icon ${d.class??''}`, href: d.href(this.#d), target: !d.local?'_blank':undefined, rel: !d.local?'noreferrer':undefined, append: $(`<${d.icon?'i':'img'}>`, {class: 'material-icons', src: d.src, alt: d.alt, text: d.icon})})
+	get html(){return this.#defaults.map(d => this.#link(d));}		//番組表向け
+	get htmlEX(){													//サイドパネル向け
+		const a = this.#defaults.concat(Links.links??[]).map(d => this.#link(d));
+		if ('Notification' in window && Notification.permission == 'granted') a.unshift($('<button>', {class: `notify_${this.#d.eid} mdl-button mdl-js-button mdl-button--icon`, data: {notification: $(`#notify_${this.#d.eid}`).length > 0}, disabled: this.#d.starttime-30<=Date.now(), click: e => { const d = Info.EventInfo[`${this.#d.onid}-${this.#d.tsid}-${this.#d.sid}-${this.#d.eid}`]||Info.reserve[0].get(this.#d.id); $(e.currentTarget).data('notification') ? Notify.del(d) : Notify.create(d, true); }, append: $('<i>', {class: 'material-icons', text: $(`#notify_${this.#d.eid}`).length ? 'notifications_off' : this.#d.starttime-30<=Date.now() ? 'notifications' : 'add_alert'}),}) )
+		return a;
 	}
+}
+const createSearchLinks = e => {
+	const $e = $(e).find('.search-links');
+	if ($e.length != 1 || $e.is('.search-links-created')) return;
 
-	data.timer = setTimeout(function(){
-		delNotify(data, true);
-		$('.notify_'+ data.eid).children().text('notifications');
-
-		$.get(root + 'api/EnumEventInfo', {onid:data.onid, tsid:data.tsid, sid:data.sid, eid:data.eid}, function(result, textStatus, xhr){
-			var e = ConvertEpgInfo($(xhr.responseXML).find('eventinfo').first());
-			var options = {
-				body: ConvertTime(e.starttime) + '～ ' + e.service + '\n' + e.text,
-				tag: e.onid +'-'+ e.tsid +'-'+ e.sid +'-'+ e.eid,
-				icon: 'img/apple-touch-icon.png'
-			};
-
-			var notification = new Notification(e.title, options);
-
-			notification.onclick = function(event){
-				event.preventDefault();
-				window.open('epginfo.html?onid=' + e.onid + '&tsid=' + e.tsid + '&sid=' + e.sid + '&eid=' + e.eid, '_blank');
-				notification.close();
-			};
-
-			NotifySound.play();
-
-			//通知を閉じる
-			setTimeout(function(){
-				notification.close();
-			}, 15*1000);
-		});
-	}, data.starttime - Date.now() - 30*1000);
-
-	$('.eid_' + data.eid + ' .startTime').after($('<div class="notify_icon"><i class="material-icons">notifications_active</i></div>'));
-	$('.notify_'+data.eid).data('notification', true).children().text('notifications_off');
-
-	var date = createViewDate(data.starttime);
-	date = ('0'+(date.getUTCMonth()+1)).slice(-2) + '/' + ('0'+date.getUTCDate()).slice(-2) + '(' + week[date.getUTCDay()] + ') ' + ('0'+date.getUTCHours()).slice(-2) + ':' + ('0'+date.getUTCMinutes()).slice(-2);
-
-	var notifyList = $('<li>', {id: 'notify_' + data.eid, class: 'mdl-list__item mdl-list__item--two-line', data: {start: data.starttime}, append: [
-		$('<span>', {class: 'mdl-list__item-primary-content', click: function(){window.open('epginfo.html?onid=' + data.onid + '&tsid=' + data.tsid + '&sid=' + data.sid + '&eid=' + data.eid, '_blank');}, append: [
-			$('<span>', {html: data.title}),
-			$('<span>', {class: 'mdl-list__item-sub-title', text: date + ' ' + data.service}) ]}),
-		$('<span>', {class: 'mdl-list__item-secondary-content', append: [
-			$('<button>', {
-				class: 'mdl-list__item-secondary-action mdl-button mdl-js-button mdl-button--icon',
-				html: $('<i>', {class: 'material-icons', text: 'notifications_off'}),
-				click: function(){delNotify(data); } }) ]}) ]});
-
-	var done;
-	$('#notifylist li').each(function(){
-		//開始時間でソート
-		if (data.starttime < $(this).data('starttime')){
-			done = true;
-			$(this).before(notifyList);
-			return false;
-		}
-	});
-	if (!done) $('#notifylist').append(notifyList);
-
-	badgeNotify();
+	$e.addClass('search-links-created').after(new SearchLinks($e.data()).html);
 }
 
-//マクロ一覧表示
-function macro(obj){
-	$(obj).prevAll('input').addClass('is-active');
-	$('#macro').addClass('is-visible');
-}
 
 //表示用に時間シフトしたDateオブジェクトを生成
-function createViewDate(value){
-	if (value === undefined) value = new Date();
+const createViewDate = (value = new Date()) => {
 	if (typeof value !== 'object') value = new Date(value);
 	return new Date(value.getTime() + 9 * 3600000);
 }
-
-function ConvertTime(t, show_sec, show_ymd){
-	if (!t)	return '未定';
+const ConvertTime = (t, show_sec, show_ymd) => {
+	if (!t) return '未定';
 	t = createViewDate(t);
-	return (show_ymd ? t.getUTCFullYear() + '/' + ('0'+(t.getUTCMonth()+1)).slice(-2) + '/' + ('0'+t.getUTCDate()).slice(-2) + '(' + week[t.getUTCDay()] + ') ' : '') +
-	       ('0'+ t.getUTCHours()).slice(-2) +':'+ ('0'+ t.getUTCMinutes()).slice(-2) + ((show_sec && t.getUTCSeconds() != 0) ? '<small>:'+ ('0' + t.getUTCSeconds()).slice(-2) +'</small>' : '');
+	if (show_sec == 'ISO') return `${t.getUTCFullYear()}${zero(t.getUTCMonth()+1)}${zero(t.getUTCDate())}T${zero(t.getUTCHours())}${zero(t.getUTCMinutes())}${zero(t.getUTCSeconds())}`;
+	return `${show_ymd ? `${t.getUTCFullYear()}/${zero(t.getUTCMonth()+1)}/${zero(t.getUTCDate())}(${Info.day[t.getUTCDay()]}) ` : ''
+		}${zero(t.getUTCHours())}:${zero(t.getUTCMinutes())}${show_sec && t.getUTCSeconds() != 0 ? `<small>:${zero(t.getUTCSeconds())}</small>` : ''}`;
 }
-function ConvertText(a){
-	return a.replace(/(https?:\/\/[\w?=&.\/-;#~%-]+(?![\w\s?&.\/;#~%"=-]*>))/g, '<a href="$1" target="_blank">$1</a>').replace(/\n/g,'<br>');
-}
-function ConvertTitle(a){
-	return a.replace(/　/g,' ').replace(/\[(新|終|再|交|映|手|声|多|字|二|Ｓ|Ｂ|SS|無|Ｃ|S1|S2|S3|MV|双|デ|Ｄ|Ｎ|Ｗ|Ｐ|HV|SD|天|解|料|前|後|初|生|販|吹|PPV|演|移|他|収)\]/g, '<span class="mark mdl-color--accent mdl-color-text--accent-contrast">$1</span>');
+const ConvertText = a => {
+	if (!a) return '';
+	const re = /https?:\/\/[\w?=&.\/-;#~%-]+(?![\w\s?&.\/;#~%"=-]*>)/g;
+	let s = '';
+	let i = 0;
+	for (let m; m = re.exec(a); i = re.lastIndex){
+		s += $('<p>').text(a.substring(i, re.lastIndex - m[0].length)).html();
+		s += $('<p>').html($('<a>', {href: m[0], target: '_blank', text: m[0], rel:'noreferrer'})).html();
+	}
+	s += $('<p>').text(a.substring(i)).html();
+	return s.replace(/\n/g,'<br>');
+};
+const ConvertTitle = a => !a ? '' : $('<p>').text(a).html().replace(/　/g,' ').replace(/\[(新|終|再|交|映|手|声|多|字|二|Ｓ|Ｂ|SS|無|Ｃ|S1|S2|S3|MV|双|デ|Ｄ|Ｎ|Ｗ|Ｐ|HV|SD|天|解|料|前|後|初|生|販|吹|PPV|演|移|他|収)\]/g, '<span class="mark mdl-color--accent mdl-color-text--accent-contrast">$1</span>');
+const ConvertService = d => `<img class="logo" src="${ROOT}api/logo?onid=${d.onid}&sid=${d.sid}">` + $('<p>').html($('<span>').text(d.service||Info.service.get(`${d.onid}-${d.tsid}-${d.sid}`).service_name)).html();
+const ConvertServiceList = d => ConvertService({onid: d.serviceList[0].onid, tsid: d.serviceList[0].tsid, sid: d.serviceList[0].sid})+`${d.serviceList.length > 1 ? `<small>.他${d.serviceList.length - 1}ch` : ''}`;
+const ConvertZtoH = s => s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
+
+const Notify = new class {
+	#sound = new Audio(`${ROOT}video/notification.mp3`);
+	constructor(){
+		this.#sound.volume = 0.2;
+	}
+	#badge(){				//通知バッチ
+		const count = $('[id^=notify_]').length;
+		$('#notification i').toggleClass('mdl-badge', count != 0).text(`notifications${count==0 ? '_none' : ''}`);
+		$('#noNotify').toggle(count == 0);
+		$('#notification i').attr('data-badge', count);
+	}
+	save(d, remove){		//通知保存
+		const a = localStorage.getItem('notifications') ? JSON.parse(localStorage.getItem('notifications')) : new Array();
+		!remove ? a.push(d) : a.some((v, i) => {if (v.eid == d.eid) a.splice(i,1);});
+		localStorage.setItem('notifications', JSON.stringify(a));
+	}
+	del(d, noSnack){		//通知リスト削除
+		clearTimeout(d.timer);
+		this.save(d, true);
+		$(`.eid_${d.eid}.notify_icon,#notify_${d.eid}`).remove();
+		$(`.notify_${d.eid}`).data('notification', false).children().text('add_alert');
+
+		this.#badge();
+		if (!noSnack) Snackbar('削除しました');
+	}
+	create(d, save){		//通知登録
+		if (save){
+			this.save(d);
+			Snackbar('追加しました');
+		}
+
+		d.timer = setTimeout(async () => {
+			this.del(d, true);
+			$(`.notify_${d.eid}`).children().text('notifications');
+
+			const id = d.eid==65535 ? d.id : `${d.onid}-${d.tsid}-${d.sid}-${d.eid}`;
+
+			const _d = d.eid==65535 ? await getList.reserve(r => r[0].get(id)) : Info.EventInfo[id] ?? await $.get(`${ROOT}api/EnumEventInfo`, {id: id}).then(xml => toObj.EpgInfo($(xml).find('eventinfo').first()));
+			const notification = new Notification(_d.title, {
+				body: `${ConvertTime(_d.starttime)}～ ${_d.service}\n${_d.text}`,
+				tag: id,
+				icon: 'img/apple-touch-icon.png'
+			});
+
+			notification.onclick = e => {
+				e.preventDefault();
+				location.href = d.eid==65535 ? `reserveinfo.html?id=${id}` : `epginfo.html?id=${id}`;
+				notification.close();
+			};
+
+			this.#sound.play();
+
+			setTimeout(() => notification.close(), 15*1000);	//通知を閉じる
+		}, d.starttime - Date.now() - 30*1000);
+
+		$(`.eid_${d.eid}.startTime`).after($('<div class="notify_icon"><i class="material-icons">notifications_active</i></div>'));
+		$(`.notify_${d.eid}`).data('notification', true).children().text('notifications_off');
+
+		const date = createViewDate(d.starttime);
+
+		const $notifyList = $('<li>', {id: `notify_${d.eid}`, class: 'mdl-list__item mdl-list__item--two-line', data: {start: d.starttime}, append: [
+			$('<span>', {class: 'mdl-list__item-primary-content', click: () => location.href = d.eid==65535 ? `reserveinfo.html?id=${d.id}` : `epginfo.html?id=${d.onid}-${d.tsid}-${d.sid}-${d.eid}`, append: [
+				$('<span>', {html: d.title}),
+				$('<span>', {class: 'mdl-list__item-sub-title', text: `${zero(date.getUTCMonth()+1)}/${zero(date.getUTCDate())}(${Info.day[date.getUTCDay()]}) ${zero(date.getUTCHours())}:${zero(date.getUTCMinutes())} ${d.service}`}) ]}),
+			$('<span>', {class: 'mdl-list__item-secondary-content', append: [
+				$('<button>', {
+					class: 'mdl-list__item-secondary-action mdl-button mdl-js-button mdl-button--icon',
+					html: $('<i>', {class: 'material-icons', text: 'notifications_off'}),
+					click: () => this.del(d) }) ]}) ]});
+
+		let done;
+		$('#notifylist li').each((i, e) => {
+			if (d.starttime >= $(e).data('start')) return true;	//開始時間でソート
+
+			done = true;
+			$(e).before($notifyList);
+			return false;
+		});
+		if (!done) $('#notifylist').append($notifyList);
+
+		this.#badge();
+	}
 }
 
-//プログラム予約
-function progReserve(start, end, eid){
-	start = createViewDate(start);
-	end = end ? createViewDate(end) : start;
-	$('#startdate').val(start.getUTCFullYear() +'-'+ ('0'+(start.getUTCMonth()+1)).slice(-2) +'-'+ ('0'+start.getUTCDate()).slice(-2));
-	$('#starttime').val(('0'+start.getUTCHours()).slice(-2) +':'+ ('0'+start.getUTCMinutes()).slice(-2) +':'+ ('0'+start.getUTCSeconds()).slice(-2));
-	$('#endtime').val(('0'+end.getUTCHours()).slice(-2) +':'+ ('0'+ end.getUTCMinutes()).slice(-2) +':'+ ('0'+ end.getUTCSeconds()).slice(-2));
+//XMLをオブジェクト化
+const toObj = {
+	EpgInfo(e){
+		e = $(e);
+		const d = {
+			onid: e.num('ONID'),
+			tsid: e.num('TSID'),
+			sid:  e.num('SID'),
+			eid:  e.num('eventID'),
+			service: e.txt('service_name'),
 
-	if (eid==65535){
-	  $('#toprogres').text('プログラム予約');
-	  $('#progres p').hide();
+			starttime: new Date(`${e.txt('startDate').replace(/\//g,'-')}T${e.txt('startTime')}+09:00`).getTime(),
+			duration: e.num('duration'),
+
+			title: e.children('event_name').length ? e.txt('event_name') : e.txt('title'),
+			text: e.txt('event_text'),
+			text_ext: e.txt('event_ext_text'),
+
+			freeCAFlag: e.num('freeCAFlag') == 1,
+
+			genre: e.children('contentInfo').get().map(e => ({
+				nibble1: $(e).num('nibble1'),
+				nibble2: $(e).num('nibble2'),
+				component_type_name: $(e).txt('component_type_name')
+			})),
+			video: e.children('videoInfo').get().map(e => ({
+				stream_content: $(e).num('stream_content'),
+				component_type: $(e).num('component_type'),
+				component_tag: $(e).num('component_tag'),
+				text: $(e).txt('text'),
+				component_type_name: $(e).txt('component_type_name')
+			})),
+			audio: e.children('audioInfo').get().map(e => ({
+				stream_content: $(e).num('stream_content'),
+				component_type: $(e).num('component_type'),
+				component_tag: $(e).num('component_tag'),
+				stream_type: $(e).num('stream_type'),
+				simulcast_group_tag: $(e).num('simulcast_group_tag'),
+				ES_multi_lingual: $(e).num('ES_multi_lingual_flag') == 1,
+				main_component: $(e).num('main_component_flag') == 1,
+				quality_indicator: $(e).num('quality_indicator'),
+				sampling_rate: $(e).num('sampling_rate'),
+				text: $(e).txt('text'),
+				component_type_name: $(e).txt('component_type_name')
+			}))
+		}
+		if (d.duration) d.endtime = new Date(d.starttime + d.duration*1000).getTime();
+
+		if (e.num('ID')){
+			d.id = e.num('ID');
+			if (e.txt('programInfo')){
+				e.txt('programInfo').split('\n-----------------------\n').map(e=>this.ProgramInfo(e)).filter(e=>e.eid==d.eid).forEach(e => {
+					d.text = e.text;
+					d.text_ext = e.text_ext;
+					d.genre = e.genre;
+					d.video = e.video;
+					d.audio = e.audio;
+					d.other = e.other;
+				});
+			}
+			d.recFilePath = e.txt('recFilePath');
+			d.comment = e.txt('comment');
+			d.drops = e.num('drops');
+			d.scrambles = e.num('scrambles');
+			d.errInfo = e.txt('errInfo');
+			d.protect = e.num('protect') == 1;
+		}
+
+		return d;
+	},
+	ProgramInfo(e){
+		const programInfo = e.match(/^(.*?)\n(.*?)\n(.*?)\n+([\s\S]*?)\n+(?:詳細情報\n)?([\s\S]*?)\n+ジャンル : \n([\s\S]*)\n\n映像 : ([\s\S]*)\n音声 : ([\s\S]*?)\n\n([\s\S]*)\n$/);
+		const id = programInfo[9].match(/OriginalNetworkID:(\d+)\(0x[0-9A-F]+\)\nTransportStreamID:(\d+)\(0x[0-9A-F]+\)\nServiceID:(\d+)\(0x[0-9A-F]+\)\nEventID:(\d+)\(0x[0-9A-F]+\)/);
+		const date = programInfo[1].split(/ |～/);
+		const starttime = new Date(`${date[0]} ${date[1]}`).getTime();
+		const endtime = /未定/.test(date[2]) ? null : new Date(`${date[0]} ${date[2]}`).getTime();
+		const d = {
+			onid: Number(id[1]),
+			tsid: Number(id[2]),
+			sid:  Number(id[3]),
+			eid:  Number(id[4]),
+			service: programInfo[2],
+
+			starttime: starttime,
+
+			title: programInfo[3],
+			text: programInfo[4],
+			text_ext: programInfo[5],
+
+			genre: programInfo[6].split('\n').map(e=>[e, [/^ニュース／報道/,/^スポーツ/,/^情報／ワイドショー"/,/^ドラマ/,/^音楽/,/^バラエティ/,/^映画/,/^アニメ／特撮/,/^ドキュメンタリー／教養/,/^劇場／公演/,/^趣味／教育/,/^福祉/].findIndex(s=>s.test(e))+1||16]),
+			video: programInfo[7].split('\n'),
+			audio: [],
+			other: programInfo[9].replace(/\n\n/g,'\n').split('\n'),
+		};
+		let i = 0;
+		programInfo[8].split('\n').map(e => {
+			if (!d.audio[i]) d.audio[i] = [];
+			d.audio[i].push(e.replace('サンプリングレート : ',''));
+			if (e.match('サンプリングレート')) i++;
+		});
+		if (endtime){
+			d.endtime = endtime;
+			d.duration = (endtime - starttime)/1000;
+		}
+
+		return d;
+	},
+	RecSet(e){
+		e = $(e);
+		r = e.children('recsetting');
+		const d = {
+			id: e.num('ID') || e.num('id'),
+			recSetting: {
+				recEnabled: r.num('recEnabled') == 1,
+				recMode: r.num('recMode'),
+				priority: r.num('priority'),
+				tuijyuuFlag: r.num('tuijyuuFlag') == 1,
+				serviceMode: r.num('serviceMode'),
+				pittariFlag: r.num('pittariFlag') == 1,
+				batFilePath: r.txt('batFilePath'),
+				suspendMode: r.num('suspendMode'),
+				rebootFlag: r.num('rebootFlag') == 1,
+				useMargineFlag: r.num('useMargineFlag') == 1,
+				startMargine: r.num('startMargine'),
+				endMargine: r.num('endMargine'),
+				continueRecFlag: r.num('continueRecFlag') == 1,
+				partialRecFlag: r.num('partialRecFlag') == 1,
+				tunerID: r.num('tunerID'),
+				recFolderList: r.children('recFolderList').children('recFolderInfo').get().map(e => ({
+					recFolder: $(e).txt('recFolder'),
+					writePlugIn: $(e).txt('writePlugIn'),
+					recNamePlugIn: $(e).txt('recNamePlugIn')
+				})),
+				partialRecFolder: r.children('partialRecFolder').children('recFolderInfo').get().map(e => ({
+					recFolder: $(e).txt('recFolder'),
+					writePlugIn: $(e).txt('writePlugIn'),
+					recNamePlugIn: $(e).txt('recNamePlugIn')
+				})),
+			}
+		}
+
+		if (e.txt('eventID') == 65535 || e.children('ONID').length){		//予約
+			d.title = e.txt('title');
+			d.starttime = e.children('startDate').length ? new Date(`${e.txt('startDate').replace(/\//g,'-')}T${e.txt('startTime')}+09:00`).getTime() : e.num('startTime'),
+			d.duration = e.num('duration');
+			d.service = e.txt('service_name');
+			d.onid = e.num('ONID');
+			d.tsid = e.num('TSID');
+			d.sid = e.num('SID');
+			if (e.children('dayOfWeekFlag').length){
+				d.dayOfWeekFlag = e.num('dayOfWeekFlag');
+				d.endtime = d.starttime + d.duration;
+			}else{
+				if (d.duration) d.endtime = new Date(d.starttime + d.duration*1000).getTime();
+				d.eid = e.num('eventID');
+				d.comment = e.txt('comment');
+				d.overlapMode = e.num('overlapMode');
+				d.size = e.txt('size');
+			}
+		}else if (e.children('name').length) d.name = e.txt('name');		//プリセット
+		else d.addCount = e.num('addCount');								//EPG予約
+
+		return d
+	},
+	Search(e){
+		s = $(e).children('searchsetting');
+		return {
+			searchSetting: {
+				disableFlag: s.num('disableFlag') == 1,
+				andKey: s.txt('andKey'),
+				notKey: s.txt('notKey'),
+				note: s.txt('note'),
+				regExpFlag: s.num('regExpFlag') == 1,
+				aimaiFlag: s.num('aimaiFlag') == 1,
+				titleOnlyFlag: s.num('titleOnlyFlag') == 1,
+				caseFlag: s.num('caseFlag') == 1,
+
+				contentList: s.children('contentList').get().map(e => {
+					return {
+						content_nibble: $(e).num('content_nibble'),
+						user_nibble: $(e).num('user_nibble')
+					}
+				}),
+				notContetFlag: s.txt('notContetFlag') == 1,
+				serviceList: s.children('serviceList').get().map(e => {
+					return {
+						onid: $(e).num('onid'),
+						tsid: $(e).num('tsid'),
+						sid: $(e).num('sid')
+					}
+				}),
+				dateList: s.children('dateList').get().map(e => {
+					return {
+						startDayOfWeek: $(e).num('startDayOfWeek'),
+						startMin: $(e).num('startMin'),
+						startHour: $(e).num('startHour'),
+						endDayOfWeek: $(e).num('endDayOfWeek'),
+						endHour: $(e).num('endHour'),
+						endMin: $(e).num('endMin')
+					}
+				}),
+
+				notDateFlag: s.num('notDateFlag') == 1,
+				freeCAFlag: s.num('freeCAFlag'),
+				chkDurationMin: s.num('chkDurationMin'),
+				chkDurationMax: s.num('chkDurationMax'),
+				chkRecEnd: s.num('chkRecEnd') == 1,
+				chkRecNoService: s.num('chkRecNoService') == 1,
+				chkRecDay: s.num('chkRecDay')
+			}
+		}
+	},
+	service(e){
+		e = $(e);
+		return {
+			onid: e.num('ONID'),
+			tsid: e.num('TSID'),
+			sid: e.num('SID'),
+			service_type: e.num('service_type'),
+			partialReceptionFlag: e.num('partialReceptionFlag') == 1,
+			service_provider_name: e.txt('service_provider_name'),
+			service_name: e.txt('service_name'),
+			network_name: e.txt('network_name'),
+			ts_name: e.txt('ts_name'),
+			remote_control_key_id: e.num('remote_control_key_id')
+		}
+	}
+}
+
+//各リストを取得
+const getList = new class {
+	#presets = {
+		reserve: {
+			notify: 2,
+			url: `${ROOT}api/EnumReserveInfo`,
+			sort: 'starttime',
+			toArray: $xml => $.map($xml.find('reserveinfo'), e => toObj.RecSet(e)).map(d => [d.eid == 65535 ? d.id : `${d.onid}-${d.tsid}-${d.sid}-${d.eid}`, d]),
+		},
+		tunerreserve: {
+			notify: 2,
+			url: `${ROOT}api/EnumTunerReserveInfo`,
+			sort: 'starttime',
+			toArray: $xml => $.map($xml.find('reserveinfo'), e => toObj.RecSet(e)).map(d => [d.eid == 65535 ? d.id : `${d.onid}-${d.tsid}-${d.sid}-${d.eid}`, d]),
+			tabArray: $xml => $.map($xml.find('tuner'), e => [[{total: $(e).num('total'),tunerName: $(e).txt('tunerName'),tunerID: $(e).num('tunerID')}, e]]),
+		},
+		recinfo: {
+			notify: 3,
+			url: `${ROOT}api/EnumRecInfo`,
+			toArray: $xml => $.map($xml.find('recinfo'), e => toObj.EpgInfo(e)).map(d => [d.id, d]),
+		},
+		autoaddepg: {
+			notify: 4,
+			url: `${ROOT}api/EnumAutoAdd`,
+			toArray: $xml => $.map($xml.find('autoaddinfo'), e => Object.assign(toObj.RecSet(e) , toObj.Search(e))).map(d => [d.id, d]),
+		},
+		autoaddmanual: {
+			notify: 5,
+			url: `${ROOT}api/EnumManuAdd`,
+			toArray: $xml => $.map($xml.find('autoaddinfo'), e => toObj.RecSet(e)).map(d => [d.id, d]),
+		},
+		search: {
+			url: `${ROOT}api/SearchEvent`,
+			toArray: ($xml, archive) => $.map($xml.find('eventinfo'), e => toObj.EpgInfo(e)).map(d => [`${d.onid}-${d.tsid}-${d.sid}-${archive?d.starttime:d.eid}`, d]),
+		},
+		recpreset: {
+			url: `${ROOT}api/EnumRecPreset`,
+			toArray: $xml => ({0: new Map($.map($xml.find('recpresetinfo'), e => toObj.RecSet(e)).map(d => [d.id, d]))})
+		},
+		service: {
+			url: `${ROOT}api/EnumService`,
+			toArray: $xml => new Map($.map($xml.find('serviceinfo'), e => toObj.service(e)).map(d => [`${d.onid}-${d.tsid}-${d.sid}`, d]))
+		},
+	}
+
+	#notify = {};
+	#div;
+	#count;
+	#index(page){return Math.floor(page / this.#div * PAGE_COUNT) * this.#div};
+	constructor(){
+		this.#div = Math.round(200/PAGE_COUNT)*PAGE_COUNT;
+		if (this.#div != 200) this.#count = this.#div;
+	}
+
+	async getNotifyUpdateCount(key){
+		this.#notify[key] = await this.checkUpdate(key);
+	}
+	async checkUpdate(key){
+		const notify = await $.get(`${ROOT}api/Common`, {notify: this.#presets[key].notify}).then(r => $(r).num(), r=>this.#notify[key]) + 1;
+		if (notify != this.#notify[key]) return notify;
+	}
+	async fetch(key, fn = e=>e){
+		const preset = this.#presets[key];
+		if (!preset) return;
+		if (Info[key]) return fn(Info[key]);
+
+		return await $.get(preset.url).then(xml => {
+			Info[key] = preset.toArray($(xml));
+			return fn(Info[key]);
+		});
+	}
+	async fetchEX(key, index = 0, any, fn){
+		const preset = this.#presets[key];
+		if (!preset) return;
+
+		const notify = typeof any === 'number' ? any : await this.checkUpdate(key);
+		const sort = typeof any === 'string' ? any : null;
+		fn ??= typeof any === 'function' ? any : e=>e;
+
+		if (!notify && Info[key] && Info[key][index]){
+			if (sort) Info[key][index] = new Map(this.sort(key, Info[key][index], sort));
+			return fn(Info[key]);
+		};
+
+		return await $.get(preset.url, {index: index, count: this.#count}).then(xml => {
+			const $xml = $(xml);
+			if (notify) this.#notify[key] = notify;
+			if (!Info[key]) Info[key] = preset.tabArray ? {} : {total: $xml.children().num('total')};
+
+			if (preset.tabArray){
+				(preset.tabArray($(xml))).forEach((e, i) => {
+					e[0][index] = new Map(this.sort(key, preset.toArray($(e[1])), sort));
+					Info[key][i+1] = e[0];
+				});
+			}else Info[key][index] = new Map(this.sort(key, preset.toArray($xml), sort));
+
+			return fn(Info[key]);
+		}, () => fn(Info[key]));
+	}
+	sort(key, d, sort, reverse){
+		if (typeof sort === 'boolean'){
+			reverse = sort;
+			sort = null;
+		}
+		const x = this.#presets[key];
+		if (sort) x.sort = sort;
+		if (!x.sort) return d;
+		return [...d].sort((a, b) => reverse ? b[1][x.sort] > a[1][x.sort] ? 1 : -1 : a[1][x.sort] > b[1][x.sort] ? 1 : -1);
+	}
+
+	reserve = fn => this.fetchEX('reserve', 0, fn);
+	tunerreserve = fn => this.fetchEX('tunerreserve', 0, fn);
+	recinfo = (fn, page) => this.fetchEX('recinfo', this.#index(page), fn);
+	autoaddepg = fn => this.fetchEX('autoaddepg', 0, fn);
+	autoaddmanual = fn => this.fetchEX('autoaddmanual', 0, fn);
+	recpreset = fn => this.fetch('recpreset', fn);
+	service = fn => this.fetch('service', fn);
+	async search(form, index = 0, fn = e=>e){
+		await this.reserve();
+		const preset = this.#presets.search;
+		$(`#${form}`).find('.ctok').prop('disabled', true).filter('#api').prop('disabled', false);
+		Info.search ??= {};
+		const key = $(`#${form}`).serialize();
+		if (Info.search[key] && Info.search[key][index]) return fn(Info.search[key]);
+		const params = new URLSearchParams();
+		if (index) params.set('index', index);
+		if (this.#count) params.set('count', this.#count);
+		return await $.post(`${preset.url}?${params.toString()}`, $(`#${form}`).serializeArray()).then(xml => {
+			const $xml = $(xml);
+			const d = new Map(this.sort('search', preset.toArray($xml, $('#archive').prop('checked'))));
+			Info.search[key] ??= {total:  $xml.children().num('total'), archive: $('#archive').prop('checked')};
+			Info.search[key][index] = d;
+			return fn(Info.search[key]);
+		});
+	};
+}
+
+const mdlChip = {
+	color: ['red', 'pink', 'purple', 'deep-purple', 'indigo', 'blue', 'light-blue', 'cyan', 'green', 'light-green', 'lime', 'yellow', 'amber', 'orange', 'deep-orange', 'brown', 'blue-grey'],
+	textEncoder: new TextEncoder(),
+	getColorClass(s){
+		s = this.textEncoder.encode(s).reduce((n,i)=>n+=i);
+		return `mdl-color--${this.color[s % this.color.length]}-100`;
+	},
+	tag(s, a, b){
+		return $('<span>', {class: `mdl-chip ${a||this.getColorClass(s)}`, append: $('<span>', {class: `mdl-chip__text${b ? ` ${b}` : ''}`, html: s})});
+	},
+}
+
+const createHtml = new class {
+	#days = Info.day;
+	#recMode = ['全サービス', '指定サービス', '全サービス（デコード処理なし）', '指定サービス（デコード処理なし）', '視聴', '無効'];
+	#presets = {
+		reserve: {
+			title: '予約一覧',
+			subtitle: '番組情報',
+			load: () => {
+				if (!$('tbody tr').length) return;
+				const sortedStartTime = $.map($('tbody tr'), e=>e).sort((a,b) => $(a).data('starttime') - $(b).data('starttime'));
+				const onStart = () => {
+					if (!sortedStartTime.length) return;
+					const $e = $(sortedStartTime[0]);
+					this.#timerID[1] = setTimeout(() => {
+						$e.find('.flag>span').empty().addClass('recmark');
+						if ($e.has('disabled')) $e.find('.flag>span').one({click(){$e.children('.flag').data('toggle', 1);addReserve($(this));}});
+						sortedStartTime.shift();
+						onStart();
+					}, $e.data('starttime') - Date.now());
+				}
+				onStart();
+				this.#timerID[2] = setTimeout(() => this.popstate(), Math.min(...$.map($('tbody tr'), e => $(e).data('endtime'))) - Date.now());
+			},
+			sidePanel: '#detail,#recset',
+			class: d => `reserve${d.recSetting.recEnabled ? '' : ' disabled'}`,
+			data: d => ({id: d.id, onid: d.onid, tsid: d.tsid, sid: d.sid, eid: d.eid??65535, starttime: d.starttime - d.recSetting.startMargine * 1000, endtime: d.endtime + (d.recSetting.endMargine + 20) * 1000}),
+			click: e => {
+				if ($(e.target).is('.flag, .flag *')) return;
+				$('#sidePanel').length ? getEpgInfo($(e.currentTarget)) : location.href = `reserveinfo.html?id=${$(e.currentTarget).data('id')}`;
+			},
+			cell: [
+				{title: '録画', class: 'flag', text: d => createSwitch(d), data: d => ({id: d.id})},
+				{title: '日付', class: 'date', text: d => `${ConvertTime(d.starttime, false, true)}～${ConvertTime(d.endtime)}`},
+				{title: '番組名', class: 'title', col: 4, text: d => ConvertTitle(d.title)},
+				{title: 'サービス', class: 'service', text: d => '<span>'+ConvertService(d)},
+				{title: 'コメント', class: 'comment', text: d => d.comment},
+				{title: '予想サイズ', class: 'size', text: d => d.size, n: true},
+				{title: '優先度', class: 'priority', text: d => `<span class="inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet"><i class="material-icons">grade</i></span>${d.recSetting.priority}`, n: true},
+			],
+		},
+		tunerreserve: {
+			tab: (d,i) => $('<a>', {href: '?tab='+i, class: 'mdl-layout__tab'+(i==1?' is-active':''), text: `${i}:${d.tunerName}(${d.total})`, click: e=>{e.preventDefault();this.setTab(i);}}),
+			title: 'チューナー別',
+			subtitle: '番組情報',
+			load: () => {
+				if (!$('tbody tr').length) return;
+				const sortedStartTime = $.map($('tbody tr'), e=>e).sort((a,b) => $(a).data('starttime') - $(b).data('starttime'));
+				const onStart = () => {
+					if (!sortedStartTime.length) return;
+					const $e = $(sortedStartTime[0]);
+					this.#timerID[1] = setTimeout(() => {
+						$e.find('.flag>span').empty().addClass('recmark');
+						sortedStartTime.shift();
+						onStart();
+					}, $e.data('starttime') - Date.now());
+				}
+
+				onStart();
+				this.#timerID[2] = setTimeout(() => this.popstate(), Math.min(...$.map($('tbody tr'), e => $(e).data('endtime'))) - Date.now());
+			},
+			sidePanel: '#detail,#recset',
+			class: d => `reserve${d.recSetting.recEnabled ? '' : ' disabled'}`,
+			data: d => ({onid: d.onid, tsid: d.tsid, sid: d.sid, eid: d.eid??65535, starttime: d.starttime - d.recSetting.startMargine * 1000, endtime: d.endtime + (d.recSetting.endMargine + 20) * 1000}),
+			click: e => {
+				if ($(e.target).is('.flag, .flag *')) return;
+				$('#sidePanel').length ? getEpgInfo($(e.currentTarget)) : location.href = `reserveinfo.html?id=${$(e.currentTarget).data('id')}`;
+			},
+			cell: [
+				{title: '録画', class: 'flag', text: d => createSwitch(d), data: d => ({id: d.id})},
+				{title: '日付', class: 'date', text: d => `${ConvertTime(d.starttime, false, true)}～${ConvertTime(d.endtime)}`},
+				{title: '番組名', class: 'title', col: 4, text: d => ConvertTitle(d.title)},
+				{title: 'サービス', class: 'service', text: d => '<span>'+ConvertService(d)},
+				{title: 'コメント', class: 'comment', text: d => d.comment},
+				{title: '予想サイズ', class: 'size', text: d => d.size, n: true},
+				{title: '優先度', class: 'priority', text: d => `<span class="inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet"><i class="material-icons">grade</i></span>${d.recSetting.priority}`, n: true},
+			],
+		},
+		recinfo: {
+			div: true,
+			title: '録画結果',
+			sidePanel: '#detail,#error',
+			class: d => d.drops>0 ? 'drops' : d.scrambles>0 ? 'scrambles' : '',
+			data: d => ({recinfo: d.id}),
+			click: e => $('#sidePanel').length ? setRecInfo($(e.currentTarget)) : location.href = `recinfodesc.html?id=${$(e.currentTarget).data('recinfo')}`,
+			cell: [
+				{title: '日付', class: 'date', text: d => `${ConvertTime(d.starttime, false, true)}～${ConvertTime(d.endtime)}`},
+				{title: 'タイトル', class: 'title', col: 4, text: d => ConvertTitle(d.title)},
+				{title: 'サービス', class: 'service', text: d => '<span>'+ConvertService(d)},
+				{title: '結果', class: 'comment', col: 4, text: d => d.comment},
+				{title: 'D', class: 'drop', col: 2, text: d => `<span class="mdl-cell--hide-desktop mdl-cell--hide-tablet">Drops:</span>${d.drops}`, n: true},
+				{title: 'S', class: 'scramble', col: 2, text: d => `<span class="mdl-cell--hide-desktop mdl-cell--hide-tablet">Scrambles:</span>${d.scrambles}`, n: true},
+			],
+			getThumb: async (id, $container) => {
+				const thumb = document.createElement('canvas');
+				const done = await this.thumb.setThumb(thumb, id, 0.1);
+				if (done) $container.replaceWith($('<div>', {class: 'thumb-container', append: thumb}));
+			},
+			list(d){
+				const $thumb = $('<div>', {class: 'thumb-container mdl-cell--hide-phone mdl-cell--hide-tablet', append: $('<i>', {class: 'material-icons', text: 'movie_off'})});
+				this.getThumb(d.id, $thumb);
+				return $('<div>', {class: 'grid-container', data: this.data(d), click: e => this.click(e), append: [
+					$thumb,
+					$('<div>', {class: 'summary mdl-typography--title', append: [
+						$('<span>', {class: `title${d.drops>0 ? ' mdl-color-text--red-A700' : d.scrambles>0 ? ' mdl-color-text--red-A700' : ''}`, html: ConvertTitle(d.title)}),
+						$('<span>', {class: 'mdl-typography--subhead mdl-grid mdl-grid--no-spacing', append: [
+							$('<span>', {class: 'date', html: `${ConvertTime(d.starttime, false, true)}～${ConvertTime(d.endtime)}`}),
+							$('<span>', {class: 'service', html: '<span>'+ConvertService(d)}) ]}) ]}),
+					$('<div>', {class: 'tagchip', append: [
+						mdlChip.tag(d.comment),
+						$('<span>', {class: 'container', append: [
+							mdlChip.tag(`ドロップ : <span${d.drops>0 ? ' class="mdl-color-text--red-A700"' : ''}>${d.drops}</span>`, mdlChip.getColorClass('ドロップ : ')),
+							mdlChip.tag(`スクランブル : ${d.scrambles}`, mdlChip.getColorClass('スクランブル : '), d.scrambles>0 ? ' mdl-color-text--red-A700' : null) ]}) ]}) ]})
+			},
+		},
+		autoaddepg: {
+			title: 'EPG予約',
+			add: 'autoaddepginfo.html',
+			sidePanel: '#search_,#recset',
+			data: d => ({autoadd: d.id}),
+			click: e => {
+				if ($(e.target).is('.count a')) return;
+				$('#sidePanel').length ? setAutoAdd($(e.currentTarget)) : location.href = `autoaddepginfo.html?id=${$(e.currentTarget).data('id')}`;
+			},
+			cell: [
+				{title: 'キーワード', class: 'keyword', col: 4, text: d => d.searchSetting.andKey},
+				{title: 'NOTキーワード', class: 'notkeyword', col: 3, text: d => [$('<span>', {class: 'inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet', html: $('<i>', {class: 'material-icons', text: 'block'})}), d.searchSetting.notKey]},
+				{title: 'メモ', class: 'note', col: 1, text: d => [$('<span>', {class: 'inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet', html: $('<i>', {class: 'material-icons', text: 'note'})}), d.searchSetting.note]},
+				{title: '登録数', class: 'count', col: 2, order: 1, text: d => [$('<span>', {class: 'inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet', html: $('<i>', {class: 'material-icons', text: 'search'})}), $('<a>', {text: d.addCount, href: `search.html?id=${d.id}`})], n: true},
+				{title: 'サービス', class: 'servicelist', col: 2, text: d => '<span>'+ConvertServiceList(d.searchSetting)},
+				{title: 'ジャンル', class: 'category', col: 2, text: d => d.searchSetting.contentList.length ? $(`#contentList [value="${d.searchSetting.contentList[0].content_nibble}"]`).text() : '全ジャンル'},
+				{title: '録画モード', class: 'mode', col: 2, text: d => this.#recMode[d.recSetting.recMode]}
+			],
+		},
+		autoaddmanual: {
+			title: 'プログラム予約',
+			add: 'autoaddmanualinfo.html',
+			sidePanel: '#manuadd,#recset',
+			data: d => ({manuadd: d.id}),
+			click: e => $('#sidePanel').length ? setManuAdd($(e.currentTarget)) : location.href = `autoaddmanualinfo.html?id=${$(e.currentTarget).data('id')}`,
+			cell: [
+				{title: '番組名', class: 'title', col:4, text: d => d.title},
+				{title: '曜日', class: '', text: d => this.#days.filter((e, i) => (d.dayOfWeekFlag & 2 ** i))},
+				{title: '時間', class: '', text: d => `${zero(Math.floor(d.starttime / 3600))}:${zero(Math.floor((d.starttime / 60) % 60))}:${zero(Math.floor(d.starttime % 60))} ～ ${zero(Math.floor(d.endtime / 3600))}:${zero(Math.floor((d.endtime / 60) % 60))}:${zero(Math.floor(d.endtime % 60))}`},
+				{title: '録画モード', class: 'mode', text: d => this.#recMode[d.recSetting.recMode]},
+				{title: '優先度', class: 'priority', text: d => `<span class="inline-icons mdl-cell--hide-desktop mdl-cell--hide-tablet"><i class="material-icons">grade</i></span>${d.recSetting.priority}`, n: true},
+			],
+		},
+		search: {
+			ori: true,
+			div: true,
+			load: () => {
+				if (!$('tbody tr').length) return;
+				const sortedStartTime = $.map($('tbody tr').filter((i,a) => $(a).find('.flag').data('id')), e=>e).sort((a,b) => $(a).data('starttime') - $(b).data('starttime'));
+				const onStart = () => {
+					if (!sortedStartTime.length) return;
+					const $e = $(sortedStartTime[0]);
+					this.#timerID[1] = setTimeout(() => {
+						$e.find('.flag>span').empty().addClass('recmark');
+						if ($e.children('.flag').has('disabled')) $e.find('.flag>span').one({click(){$e.children('.flag').data('toggle', 1);addReserve($(this));}});
+						sortedStartTime.shift();
+						onStart();
+					}, $e.data('starttime') - Date.now());
+				}
+				onStart();
+
+				const sortedEndTime = $.map($('tbody tr').filter((i,a) => $(a).data('endtime')), e=>e).sort((a,b) => $(a).data('endtime') - $(b).data('endtime'));
+				const onEnd = () => {
+					if (!sortedEndTime.length) return;
+					const $e = $(sortedEndTime[0]);
+					this.#timerID[2] = setTimeout(() => {
+						$e.children('.flag').data('id', false).children('span').remove();
+						sortedEndTime.shift();
+						onEnd();
+					}, $e.data('endtime') - Date.now());
+				}
+				onEnd();
+			},
+			class: () => 'search',
+			data: d => ({onid: d.onid, tsid: d.tsid, sid: d.sid, eid: d.eid, endtime: d.endtime, starttime: d.id?d.starttime:undefined}),
+			click: e => {
+				if ($(e.target).is('.flag, .flag *')) return;
+				$('#sidePanel').length ? getEpgInfo($(e.currentTarget)) : location.href = `reserveinfo.html?id=${$(e.currentTarget).data('id')}`;
+			},
+			cell: [
+				{title: '録画', class: 'flag', text: d => createSwitch(d), data: d => ({id: d.id, onid: d.onid, tsid: d.tsid, sid: d.sid, eid: d.eid, oneclick: !d.id?1:undefined})},
+				{title: '日付', class: 'date', text: d => `${ConvertTime(d.starttime, false, true)}`},
+				{title: '番組名', class: 'title', col: 4, text: d => ConvertTitle(d.title)},
+				{title: 'サービス', class: 'service', text: d => '<span>'+ConvertService(d)},
+				{title: '番組内容', class: 'info', text: d => d.text},
+			],
+		},
+	}
+
+	#timerID = [];
+	#clearTimeout = () => this.#timerID.forEach(e => clearTimeout(e));
+
+	#key;
+	#form;
+	#container = 'div.mdl-layout__content';
+	#div = Math.round(200 / PAGE_COUNT);
+	constructor(){
+		this.#setFromURL();
+		if (!this.enabled) return;
+		$(window).on('popstate', () => this.popstate());
+		$(() => {
+			getList.service();
+
+			$('.mdl-navigation a').click(e => {
+				const key = $(e.currentTarget).attr('href').split('.')[0];
+				if (!this[key]) return;
+				e.preventDefault();
+				this[key]();
+			});
+
+			if (!this.#preset) return;
+
+			if (this.#preset.load) this.#preset.load();
+			this.#checkUpdate();
+			this.#resetSidePanel();
+			getList.getNotifyUpdateCount(this.#key);
+
+			$('.pagination a').click(e => {
+				e.preventDefault();
+				this.setPage(new URL($(e.currentTarget).attr('href'), location.href).searchParams.get('page') ?? 0);
+			});
+			/*
+			$('.pagination button:not(:disabled)').click(e => {
+				e.preventDefault();
+				const page = Number(new URL($(e.currentTarget).attr('formaction'), location.href).searchParams.get('page') ?? 0);
+				this.#form = $(e.currentTarget).attr('form');
+				this.setPage(page);
+			});
+			//*/
+			$('.mdl-layout__tab').click(e => {
+				const params = new URLSearchParams($(e.currentTarget).attr('href'));
+				if (!params.has('tab')) return;
+				e.preventDefault();
+				this.setTab(params.get('tab'));
+			});
+		});
+	}
+
+	set setContainer(e){this.#container = e};
+	get #preset(){return this.#presets[this.#key] && this.#presets[this.#key]};
+	get enabled(){return this.#key=='index' || this.#preset && !this.#preset.ori || false};
+	get #index(){return this.#preset.div ? (Math.floor(this.#page / this.#div) * this.#div * PAGE_COUNT) : 0};
+
+	load(){
+		this.#clearTimeout();
+		this.#presets[this.#key].load();
+	}
+
+	#table(d){
+		const i = (this.#preset.div ? this.#page % this.#div : this.#page) * PAGE_COUNT;
+		return [
+			$('<caption>', {text: `${d.total} 件中 ${Math.min(d.total, this.#page * PAGE_COUNT + 1)} － ${Math.min(d.total, (this.#page + 1) * PAGE_COUNT)} 件`}),
+			$('<thead>', {class: 'mdl-cell--hide-phone', append:
+				$('<tr>', {append: this.#preset.cell.map(cell =>
+					$('<th>', {class: `${cell.class}${cell.n ? '' : ' mdl-data-table__cell--non-numeric'}`, text: cell.title}) )}) }),
+			$('<tbody>', {append: [...d[this.#index]].slice(i, i + PAGE_COUNT).map(e =>
+				$('<tr>', { class: `${this.#preset.class ? this.#preset.class(e[1]) : ''} mdl-grid--no-spacing`, data: this.#preset.data(e[1]), click: e => this.#preset.click(e), append: this.#preset.cell.map(cell =>
+					$('<td>', {class: `${cell.class}${cell.n?'':' mdl-data-table__cell--non-numeric'}${cell.col?` mdl-cell--${cell.col}-col-phone`:''}${cell.order?` mdl-cell--order-${cell.order}-phone`:''}`, data: cell.data && cell.data(e[1]), append: cell.text(e[1])}) )}) )})
+		];
+	}
+	#list(d){
+		const i = (this.#preset.div ? this.#page % this.#div : this.#page) * PAGE_COUNT;
+		return [
+			$('<div>', {class: 'mdl-typography--text-right', text: `${d.total} 件中 ${Math.min(d.total, this.#page * PAGE_COUNT + 1)} － ${Math.min(d.total, (this.#page + 1) * PAGE_COUNT)} 件`}),
+			...[...d[this.#index]].slice(i, i + PAGE_COUNT).map(e => this.#preset.list(e[1]))
+		];
+	}
+	#pagination(d){
+		const i = 5;	//表示数
+		const max = Math.ceil(d.total / PAGE_COUNT - 1);
+		const n = Math.max(Math.min(this.#page-Math.round(i/2)+1, max-i+1), 0);
+		return $('<div>', {class: 'mdl-grid mdl-grid--no-spacing', append: [
+					{text: 'first_page', page: 0, disabled: this.#page==0},
+					{text: 'chevron_left', page: this.#page-1, disabled: this.#page == 0, class: 'prev'},
+					...[...Array(i)].map((e, i)=>i+n).filter(i=>i==this.#page||i<=max).map(i => ({text: i+1, page: i, class: i==this.#page?'mdl-color--accent mdl-color-text--accent-contrast':'', disabled: i==this.#page})),
+					{text: 'chevron_right', page: this.#page+1, disabled: this.#page>=max, class: 'next'},
+					{text: 'last_page', page: max, disabled: this.#page>=max}
+				].map(d => $(`<${!d.disabled&&!this.#form ? 'a' : 'button'}>`, {class: `mdl-button mdl-js-button mdl-button--icon ${d.class ?? ''}`, href: !d.disabled ? `${this.#key}.html${d.page>0 ? `?page=${d.page}` : ''}` : null, disabled: d.disabled, click: e => {e.preventDefault();this.setPage(d.page);}, html: typeof d.text == 'number' ? d.text : $('<i>', {class: 'material-icons', text: d.text}) })) });
+	}
+	async create(notify){
+		showSpinner(true);
+		this.#clearTimeout();
+
+		const d = this.#key=='search' ? await getList.search(this.#form, this.#index)
+			: await getList.fetchEX(this.#key, this.#index, notify, d => this.#preset.tab?d[this.#tab]:d);
+
+		$('.mdl-layout__content').scrollTop(0);
+		$(`${this.#container} .pagination`).html(this.#pagination(d));
+		if (this.#preset.list && this.thumb){
+			$(`${this.#container} #table`).hide();
+			$(`${this.#container} .main-content`).html(this.#list(d));
+			$(`${this.#container} #list`).show();
+		}else{
+			$(`${this.#container} #list`).hide();
+			$(`${this.#container} table`).html(this.#table(d)).show();
+			$(`${this.#container} #table`).show();
+		}
+		componentHandler.upgradeDom();
+
+		if (this.#preset.load) this.#preset.load();
+		this.#checkUpdate();
+
+		showSpinner();
+	}
+	async sort(sort){
+		const d = await getList.fetchEX(this.#key, this.#index, sort);
+		$(`${this.#container} table`).html(this.#table(d));
+		componentHandler.upgradeDom();
+	}
+
+	#checkUpdate(){
+		this.#timerID[0] = setTimeout(async ()=> {
+			const notify = await getList.checkUpdate(this.#key);
+			if (notify) this.create(notify);
+			else this.#checkUpdate();
+		}, 10*60*1000);
+	}
+
+	#resetSidePanel(){
+		$('#sidePanel, .close_info.mdl-layout__obfuscator, .open').removeClass('is-visible open');
+		$('.mdl-layout__drawer').attr('aria-hidden', true);
+		$('.mdl-layout__drawer,.mdl-layout__obfuscator').removeClass('is-visible');
+
+		$('header .mdl-layout-title').text(this.#preset.title);
+		$('.sidePanel_title').text(this.#preset.subtitle ?? this.#preset.title);
+		$('form.tab-container').find('input,select').mdl_prop('disabled', true);
+		$(this.#preset.sidePanel).find('input,select').mdl_prop('disabled', false);
+		$('#del [name="ctok"]').prop('disabled', true);
+		$(`#del-${this.#key}`).prop('disabled', false);
+		$('.mdl-tabs__tab,[class*="show-"]').addClass('hidden');
+		$(`${this.#preset.sidePanel.split(',').map(e=>`.mdl-tabs__tab[href='${e}']`).join(',')},[class*="hide-"],.show-${this.#key}`).removeClass('hidden');
+		$(`.hide-${this.#key}`).addClass('hidden');
+		$('#reserve').text('変更');
+		$('#add').toggleClass('hidden', !this.#preset.add).attr('href', this.#preset.add??'')
+	}
+
+	get #page(){return Number(this.#params.get('page'))||0};
+	set #page(page){page ? this.#params.set('page', page) : this.#params.delete('page')};
+	setPage(page){
+		this.#setParams(page);
+	}
+	get #tab(){return Number(this.#params.get('tab'))||1};
+	set #tab(tab){tab>1 ? this.#params.set('tab', tab) : this.#params.delete('tab')};
+	setTab(tab){
+		$('.mdl-layout__tab').removeClass('is-active');
+		$(`[href='?tab=${tab}']`).addClass('is-active');
+		this.#tab = tab;
+		this.#setParams(0);
+	}
+
+	#params;
+	#setFromURL(){
+		const old = this.#key;
+		const key = location.pathname.split('/');
+		this.#key = key[key.length - 1].split('.')[0];
+		if (this.#key=='') this.#key = 'index';
+		this.#params = new URLSearchParams(location.search);
+		return this.#key != old && this.#key!='index';
+	}
+	async #setToURL(key, page, tab = 1){
+		if (this.#key != key){
+			this.#key = key;
+			$('.mdl-layout__tab-bar-container').remove();
+			if (this.#preset.tab){
+				$('header').append($('<div>', {class:'mdl-layout__tab-bar', append: Object.values(await getList[this.#key]()).map((d,i)=>this.#preset.tab(d,i+1))}));
+				const btn = document.querySelector('.mdl-layout__drawer-button');
+				const clonedBtn = btn.cloneNode(true);
+				btn.replaceWith(clonedBtn);
+				$('.mdl-layout').unwrap();
+				delete $('.mdl-layout.mdl-js-layout.mdl-layout--fixed-header').get(0).dataset.upgraded;
+				$('.has-drawer>.mdl-layout__obfuscator:not(#macro)').remove();
+			}
+		}
+		this.#page = page;
+		this.#tab = tab;
+		this.#resetSidePanel();
+		history.pushState(null, null, `${this.#key}.html?${this.#params.toString()}`);
+		this.create();
+	}
+	async #setParams(page){
+		this.#page = page;
+		history.pushState(null, null, `?${this.#params.toString()}`);
+		await this.create();
+	}
+	async popstate(){
+		this.#setFromURL() && this.#resetSidePanel();
+		if (this.#key=='index'){
+			$(this.#container).find('.pagination,table').empty();
+			$('header .mdl-layout-title').text('');
+		}else this.create();
+	}
+
+	reserve(page = 0){this.#setToURL('reserve', page)}
+	recinfo(page = 0){this.#setToURL('recinfo', page)}
+	autoaddepg(page = 0){this.#setToURL('autoaddepg', page)}
+	autoaddmanual(page = 0){this.#setToURL('autoaddmanual', page)}
+	tunerreserve(page = 0, tab = 1){this.#setToURL('tunerreserve', page, tab)}
+}
+
+const resetSidePanel = tab => {
+	$('.mdl-tabs__panel').addClass('is-active').scrollTop(0).removeClass('is-active');
+	$('.mdl-tabs__tab,#sidePanel, .clicked, .open').removeClass('is-visible is-active clicked open');
+	$(`[href="#${tab}"], #${tab}`).addClass('is-active');
+	$('.sidePanel-content').scrollTop(0);
+}
+
+//番組詳細を反映
+const setEpgInfo = (d, $e, id) => {
+	resetSidePanel('detail');
+	if ($e) $e.addClass('open');
+
+	if (!d.onid) d = toObj.EpgInfo(d);
+
+	$('#title').html( ConvertTitle(d.title) );
+
+	if (d.starttime){
+		$('#info_date').html(`${ConvertTime(d.starttime, true, true)}～${ConvertTime(d.endtime, true)}`);
+		progReserve(d);
+	}else $('#info_date').html('未定');
+	$('#sidePanel .mdl-tabs__tab-bar,#sidePanel .mdl-card__actions:not(.hidden)').toggle(d.errInfo && true || d.starttime && !d.endtime || Date.now() < d.endtime);
+
+	$('#service').html(ConvertService(d));
+	$('#links').html(new SearchLinks(d).htmlEX);
+	$('#summary p').html( ConvertText(d.text) );
+	$('#ext').html( ConvertText(d.text_ext) );
+
+	const video = e => e.split('、').flatMap((e,i) => i ? e.split(' ').map(e => mdlChip.tag(e)) : mdlChip.tag(e));
+
+	$('#genreInfo').html(() => !d.genre ? '' : d.genre.map(e => d.id ? mdlChip.tag(e[0], `cont-${e[1]}`) : mdlChip.tag(e.component_type_name, `cont-${e.nibble1%16+1}`)));
+	$('#videoInfo').html(() => !d.video ? '' : d.video.flatMap(e => d.id ? video(e) : [...video(e.component_type_name), e.text ? mdlChip.tag(e.text) : null]));
+	$('#audioInfo').html(() => !d.audio ? '' : d.audio.map(e => d.id ? $('<div>', {append: e.map(e => mdlChip.tag(e))}) : $('<div>', {append: [mdlChip.tag(e.component_type_name), e.text ? mdlChip.tag(e.text) : null, mdlChip.tag(`${{1:'16',2:'22.05',3:'24',5:'32',6:'44.1',7:'48'}[e.sampling_rate]}kHz`)]})));
+
+	if (d.errInfo){
+		$('#otherInfo').html(d.other ? d.other.map(e=>{if (!e.match('ID:')) return mdlChip.tag(e);}) : '').append(mdlChip.tag(`${d.onid}-${d.tsid}-${d.sid}-${d.eid}`));
 	}else{
-	  $('#toprogres').text('プログラム予約化');
-	  $('#progres p').show();
+		$('#otherInfo').html([
+			d.onid<0x7880 || 0x7FE8<d.onid ? mdlChip.tag(d.freeCAFlag ? '有料放送' : '無料放送') : '',
+			mdlChip.tag(`${d.onid}-${d.tsid}-${d.sid}-${d.eid}`),
+		]);
+
+		$('[name=onid]').val(d.onid);
+		$('[name=tsid]').val(d.tsid);
+		$('[name=sid]').val(d.sid);
+		$('[name=eid]').val(d.eid);
+
+		$('#link_epginfo').attr('href', createHtml.enabled ? `reserveinfo.html?id=${$e.find('.flag').data('id')}` : `epginfo.html?id=${id||`${d.onid}-${d.tsid}-${d.sid}-${d.eid || d.starttime}`}`);
+		$('#set').data('onid', d.onid).data('tsid', d.tsid).data('sid', d.sid).data('eid', d.eid);
 	}
 }
 
-//番組情報をオブジェクト化
-function ConvertEpgInfo(e){
-	var d = {
-		onid: Number(e.children('ONID').text()),
-		tsid: Number(e.children('TSID').text()),
-		sid:  Number(e.children('SID').text()),
-		eid:  Number(e.children('eventID').text()),
-		service: e.children('service_name').text(),
+//マクロ一覧表示
+const openMacro = $e => {
+	$e.prevAll('input').addClass('is-active');
+	$('#macro').addClass('is-visible');
+}
 
-		duration: Number(e.children('duration').text()),
-
-		title: e.children('event_name').length > 0 ? e.children('event_name').text() : e.children('title').text(),
-		text: e.children('event_text').text(),
-		text_ext: e.children('event_ext_text').text(),
-
-		freeCAFlag: e.children('freeCAFlag').first().text() == 1
+//録画フォルダパス
+const recFolder = new class {
+	create(d, i, partial){
+		const div = '<div>';
+		const container = 'mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing';
+		const select = 'mdl-cell pulldown mdl-grid mdl-grid--no-spacing';
+		const textfield = 'mdl-cell mdl-textfield mdl-js-textfield';
+		const delbtn = 'delPreset mdl-button mdl-button--icon mdl-button--mini-icon mdl-js-button';
+		const middle = 'mdl-cell mdl-cell--middle';
+		const recNamePlugIn = d.recNamePlugIn.match(/^(.*\.(?:dll|so))?(?:\?(.*))?/);
+		partial = partial ? 'partial' : '';
+		return $(div, {class: `preset ${container}`, append: [
+					$(div, {class: delbtn, click: e => this.del($(e.currentTarget)), html:
+						$('<i>', {class: 'material-icons', text: 'delete'}) }),
+					$(div, {class: container, append: [
+						$(div, {class: middle, text: 'フォルダ'}),
+						$(div, {class: textfield, append: [
+							$('<input>', {class: 'has-icon mdl-textfield__input', type: 'text', name: `${partial}recFolder`, id: `${partial}recFolder${i}`, val: d.recFolder}),
+							$('<label>', {class: 'mdl-textfield__label', for: `${partial}recFolder${i}`, text: '!Default'}) ]}) ]}),
+					$(div, {class: container, append: [
+						$(div, {class: middle, text: '出力PlugIn'}),
+						$(div, {class: select, html:
+							$('<select>', {name: `${partial}writePlugIn`, html:
+								$('#Write').html(), val: d.writePlugIn }) }) ]}),
+					$(div, {class: container, append: [
+						$(div, {class: middle, text: 'ファイル名PlugIn'}),
+						$(div, {class: select, html:
+							$('<select>', {name: `${partial}recNamePlugIn`, html:
+								$('#RecName').html(), val: recNamePlugIn[1]}) }) ]}),
+					$(div, {class: container, append: [
+						$(div, {class: middle, text: 'オプション'}),
+						$(div, {class: textfield, append: [
+							$('<input>', {class: 'has-icon mdl-textfield__input', type: 'text', name: `${partial}recName`, id: `${partial}recName${i}`, val: recNamePlugIn[2]}),
+							$('<label>', {class: 'mdl-textfield__label', for: `${partial}recName${i}`, text: 'ファイル名PlugIn'}),
+							$('<i>', {class: 'addmacro material-icons', text: 'add', click: e => openMacro($(e.currentTarget)) }) ]}) ]}) ]});
 	}
-	d.starttime = new Date(e.children('startDate').text().replace(/\//g,'-')+'T'+e.children('startTime').text()+'+09:00').getTime();
-	if (d.duration) d.endtime = new Date(d.starttime + d.duration*1000).getTime();
-
-	if (e.children('contentInfo').length > 0){
-		d.genre = [];
-		e.children('contentInfo').each(function(i){
-			d.genre[i] = {
-				nibble1: Number($(this).children('nibble1').text()),
-				nibble2: Number($(this).children('nibble2').text()),
-				component_type_name: $(this).children('component_type_name').text()
-			}
-		});
+	del($e){
+		$e = $e.parent();
+		const $elem = $e.next();
+		const $clone = $e.clone(true);
+		$e.remove();
+		const d = {
+			message: '削除しました',
+			timeout: 2000,
+			actionHandler: () => {
+				$clone.insertBefore($elem);
+				Snackbar('元に戻しました');
+			},
+			actionText: '元に戻す'
+		};
+		Snackbar(d);
 	}
+}
 
-	if (e.children('videoInfo').length > 0){
-		d.video = [];
-		e.children('videoInfo').each(function(i){
-			d.video[i] = {
-				stream_content: Number($(this).children('stream_content').text()),
-				component_type: Number($(this).children('component_type').text()),
-				component_tag: Number($(this).children('component_tag').text()),
-				text: $(this).find('text').text(),
-				component_type_name: $(this).children('component_type_name').text()
-			}
-		});
-	}
+//録画設定を反映
+const setRecSettting = d => {
+	const r = d.recSetting;
 
-	if (e.children('audioInfo').length > 0){
-		d.audio = [];
-		e.children('audioInfo').each(function(i){
-			d.audio[i] = {
-				stream_content: Number($(this).find('stream_content').text()),
-				component_type: Number($(this).find('component_type').text()),
-				component_tag: Number($(this).find('component_tag').text()),
-				stream_type: Number($(this).find('stream_type').text()),
-				simulcast_group_tag: Number($(this).find('simulcast_group_tag').text()),
-				ES_multi_lingual: $(this).find('ES_multi_lingual_flag').text() == '1',
-				main_component: $(this).find('main_component_flag').text() == '1',
-				quality_indicator: Number($(this).find('quality_indicator').text()),
-				sampling_rate: Number($(this).children('sampling_rate').text()),
-				text: $(this).find('text').text(),
-				component_type_name: $(this).find('component_type_name').text()
-			}
-		});
-	}
+	$('[name=recEnabled]').mdl_prop('checked', r.recEnabled);				//有効
+	$('[name=recMode]').val(r.recMode);										//録画モード
+	$('[name=tuijyuuFlag]').mdl_prop('checked', r.tuijyuuFlag);				//追従
+	$('[name=priority]').val(r.priority);									//優先度
+	$('[name=pittariFlag]').mdl_prop('checked', r.pittariFlag);				//ぴったり(？)録画
+	$('[name=suspendMode]').val(r.suspendMode);								//録画後動作
+	$('#reboot').mdl_prop('disabled', r.suspendMode == 0);
+	$('[name=rebootFlag]').mdl_prop('checked', r.rebootFlag);				//復帰後再起動
+	$('[name=useDefMarginFlag]').mdl_prop('checked', !r.useMargineFlag);	//録画マージン
+	$('.recmargin').mdl_prop('disabled', !r.useMargineFlag);
+	$('[name=startMargin]').val(r.startMargine);							//開始
+	$('[name=endMargin]').val(r.endMargine);								//終了
+	$('[name=serviceMode]').mdl_prop('checked', r.serviceMode%2 == 0);		//指定サービス対象データ
+	$('.smode').mdl_prop('disabled', r.serviceMode%2 == 0);
+	const serviceMode = (r.serviceMode%2 == 0) ? r.defserviceMode : r.serviceMode;
+	$('[name=serviceMode_1]').mdl_prop('checked', Math.floor(serviceMode/16)%2 != 0);
+	$('[name=serviceMode_2]').mdl_prop('checked', Math.floor(serviceMode/32)%2 != 0);
+	$('[name=continueRecFlag]').mdl_prop('checked', r.continueRecFlag);		//連続録画動作
+	$('[name=tunerID]').val(r.tunerID);										//使用チューナー強制指定
+
+	//プリセット
+	$('.preset').remove();
+
+	//録画後実行bat
+	const batFilePath = r.batFilePath.match(/^([^*]*)\*?([\s\S]*)$/);
+	if (!$(`[name="batFilePath"] option[value="${batFilePath[1].replace(/[ !"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~]/g, '\\$&')}"]`).length)
+		$('[name="batFilePath"]').append($('<option>', {value: batFilePath[1], text: batFilePath[1]}));
+	$('[name="batFilePath"]').val(batFilePath[1]);
+	$('[name="batFileTag"]').val(batFilePath[2]);
+	r.recFolderList.forEach((e, i) => $('#preset .addPreset').before(recFolder.create(e, i)));
+	r.partialRecFolder.forEach((e, i) => $('#partialpreset .addPreset').before(recFolder.create(e, i, true)));				//部分受信プリセット
+	componentHandler.upgradeDom();
+	$('[name=partialRecFlag]').mdl_prop('checked', r.partialRecFlag);		//部分受信サービス
+	$('#partialpreset').toggle(r.partialRecFlag);
+
 	return d;
 }
 
-//番組詳細を表示
-function setEpgInfo(e, past){
-	if (!e.onid) e = ConvertEpgInfo(e);
-
-	$('#title').html( ConvertTitle(e.title) );
-
-	if (e.starttime){
-		$('#info_date').html(ConvertTime(e.starttime, true, true) +'～'+ ConvertTime(e.endtime, true));
-		progReserve(e.starttime, e.endtime, e.eid)
-
-		if (!e.end || Date.now()<e.end || e.recinfoid){
-			$('#sidePanel .mdl-tabs__tab-bar').show();
-			$('#sidePanel .mdl-dialog__actions').show();
-		}else{
-			$('#sidePanel .mdl-tabs__tab-bar').hide();
-			$('#sidePanel .mdl-dialog__actions').hide();
-		}
-	}else{
-		$('#info_date').html('未定');
-		$('#sidePanel .mdl-tabs__tab-bar').show();
-		$('#sidePanel .mdl-dialog__actions').show();
+//時間絞り込み
+const dateList = new class {
+	click(e){
+		$(e.currentTarget).toggleClass('mdl-color--accent mdl-color-text--accent-contrast');
+		const $e = $('#dateList_select option').eq( $(e.currentTarget).data('count') );
+		$e.prop('selected', !$e.prop('selected'));
 	}
-
-	$('#service,#service_hedder').html(e.service);
-	$('#links').html($('.open .links a').clone(true));
-	$('#summary p').html( ConvertText(e.text) );
-	$('#ext').html( ConvertText(e.text_ext) );
-
-	var genre, video, audio, other = genre = video = audio = '';
-	if (typeof e.genre == 'string'){
-		genre = '<li>'+e.genre.replace(/\n/g,'<li>');
-	}else{
-		$(e.genre).each(function(){
-			genre += '<li>'+ this.component_type_name;
-		});
+	create(){
+		$("#dateList_touch").empty();
+		$('[name=dateList]').val(
+			$('#dateList_select option').get().map((e, i) => {
+				this.add.touch(i, $(e).text());
+				return $(e).val();
+			})
+		);
 	}
-	$('#genreInfo').html(genre);
-	if (typeof e.video == 'string'){
-		video = '<li>'+e.video.replace(/\n/g,'<li>');
-	}else{
-		$(e.video).each(function(){
-			video += '<li>'+ this.component_type_name +' '+ this.text;
-		});
-	}
-	$('#videoInfo').html(video);
-	if (typeof e.audio == 'string'){
-		audio = '<li>'+ e.audio.replace(/\n/g,'<li>');
-	}else{
-		$(e.audio).each(function(){
-			audio += '<li>'+ this.component_type_name +' '+ this.text +'<li>サンプリングレート : '+ {1:'16',2:'22.05',3:'24',5:'32',6:'44.1',7:'48'}[this.sampling_rate] +'kHz';
-		});
-	}
-	$('#audioInfo').html(audio);
-
-
-	if (e.recinfoid){
-		if (e.other) other = '<li>'+ e.other.replace(/\n/g,'<li>');
-		$('#otherInfo').html(other);
-	}else{
-		if (e.onid<0x7880 || 0x7FE8<e.onid){
-			if (e.freeCAFlag){
-				other = '<li>有料放送';
-			}else{
-				other = '<li>無料放送';
-			}
-		}
-		$('#otherInfo').html(other +
-			'<li>OriginalNetworkID:' + e.onid +'(0x'+ ('000'+e.onid.toString(16).toUpperCase()).slice(-4) +')' +
-			'<li>TransportStreamID:' + e.tsid +'(0x'+ ('000'+e.tsid.toString(16).toUpperCase()).slice(-4) +')' +
-			'<li>ServiceID:'         + e.sid  +'(0x'+ ('000'+ e.sid.toString(16).toUpperCase()).slice(-4) +')' +
-			'<li>EventID:'           + e.eid  +'(0x'+ ('000'+ e.eid.toString(16).toUpperCase()).slice(-4) +')' );
-
-		$('[name=onid]').val(e.onid);
-		$('[name=tsid]').val(e.tsid);
-		$('[name=sid]').val(e.sid);
-		$('[name=eid]').val(e.eid);
-
-		$('#link_epginfo').attr('href', 'epginfo.html?onid='+ e.onid +'&tsid='+ e.tsid +'&sid='+ e.sid + (past ? '&startTime='+ past : '&eid='+ e.eid));
-		$('#set').data('onid', e.onid).data('tsid', e.tsid).data('sid', e.sid).data('eid', e.eid);
+	//追加
+	add = {
+		select: (t, text) => $('#dateList_select').append(`<option value="${text ? `${t}">${text}` : `${t.startDayOfWeek}-${t.startTime}-${t.endDayOfWeek}-${t.endTime}">${t.startDayOfWeek} ${t.startTime} ～ ${t.endDayOfWeek} ${t.endTime}`}`),
+		touch: (i, text) => $("#dateList_touch").append($('<li>', {class: 'mdl-list__item', data: {count: i}, click: e => this.click(e), html: `<span class="mdl-list__item-primary-content">${text}</span>`}))
 	}
 }
 
-//番組詳細を取得、予約確認
-function getEpgInfo(target, data, past){
-	showSpinner(true);
-	$('.mdl-tabs__panel').addClass('is-active').scrollTop(0);
-	$('[href="#recset"], #recset, #sidePanel, .clicked, .open').removeClass('is-visible is-active clicked open');
-	$('[href="#detail"], #detail').addClass('is-active');
-	target.addClass('open');
-	$('.sidePanel-content').scrollTop(0);
-
-	data = data || target.data();
-	var id = data.id || target.find('.addreserve').data('id') || target.children('.flag').data('id');
-
-	$.ajax({
-		url: root + 'api/EnumEventInfo' + (past ? '?startTime='+ past : ''),
-		data:  {basic: 0, onid: data.onid, tsid: data.tsid, sid: data.sid, eid: data.eid},
-		success: function(result, textStatus, xhr){
-			var info = $(xhr.responseXML);
-			if (info.find('eventinfo').length > 0){
-				info = info.find('eventinfo').first();
-
-				function action(){
-					var Reserve = ReserveAutoaddList[data.onid+'-'+data.tsid+'-'+data.sid+'-'+data.eid];
-					if (Reserve){
-						if (!id){//追加されてた
-							id = Reserve.find('ID').text();
-							if (target.hasClass('onair')){
-								var next = data.next ? 'next' : '';
-								target.data(next+'id', id);
-							}else{
-								addMark(info, $('.open .addreserve'), $('.open .content-wrap'));
-							}
-						}
-						setEpgInfo(info);
-						setReserve(Reserve, id);
-					}else{
-						if (id){//削除されてた
-							if (target.hasClass('reserve')){
-								target.remove();
-							}else{
-								if (target.hasClass('onair')){
-									var next = data.next ? 'next' : '';
-									target.removeData(next+'id');
-								}
-
-								setEpgInfo(info, past);
-								setDefault(true);
-								$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
-							}
-							if (!target.hasClass('onair')) Snackbar.MaterialSnackbar.showSnackbar({message: '予約が見つかりませんでした'});
-						}else{
-							setEpgInfo(info, past);
-							setDefault();
-
-							$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
-						}
-					}
-					showSpinner();
-				}
-
-				$.get(root + 'api/Common', {notify: 2}, function(result, textStatus, xhr){
-					var Count = $(xhr.responseXML).find('info').text();
-					if (ReserveAutoaddList && Count == notifyCount){
-						action();
-					}else{
-						notifyCount = Count;
-						sessionStorage.setItem('notifyCount', notifyCount);
-						$.get(root + 'api/EnumReserveInfo', function(result, textStatus, xhr){
-							ReserveAutoaddList={};
-							$(xhr.responseXML).find('reserveinfo').each(function(){
-								var key;
-								if ($(this).find('eventID').text()==65535){
-									key=$(this).find('ID').text();
-								}else{
-									key=$(this).find('ONID').text()+'-'+$(this).find('TSID').text()+'-'+$(this).find('SID').text()+'-'+$(this).find('eventID').text();
-								}
-								ReserveAutoaddList[key]=$(this);
-							});
-							action();
-						});
-					}
-				});
-			}else{
-				if (id){
-				//プログラム予約または番組変更でなくなった
-					function action(){
-						var key;
-						if (data.eid==65535){
-							key = id;
-						}else{
-							key = data.onid+'-'+data.tsid+'-'+data.sid+'-'+data.eid
-						}
-						var Reserve = ReserveAutoaddList[key];
-						if (Reserve){
-							setEpgInfo(Reserve);
-
-							$('#link_epginfo').attr('href', 'reserveinfo.html?id=' + id);
-							$('[href="#detail"], #detail').removeClass('is-active');
-							$('[href="#recset"], #recset').addClass('is-active');
-
-							setReserve(Reserve, id);
-						}else{
-							target.remove();
-							Snackbar.MaterialSnackbar.showSnackbar({message: '予約が見つかりませんでした'});
-							showSpinner();
-						}
-					}
-
-					$.get(root + 'api/Common', {notify: 2}, function(result, textStatus, xhr){
-						var Count = $(xhr.responseXML).find('info').text();
-						if (ReserveAutoaddList && Count == notifyCount){
-							action();
-						}else{
-							notifyCount = Count;
-							sessionStorage.setItem('notifyCount', notifyCount);
-							$.get(root + 'api/EnumReserveInfo', function(result, textStatus, xhr){
-								ReserveAutoaddList={};
-								$(xhr.responseXML).find('reserveinfo').each(function(){
-									var key;
-									if ($(this).find('eventID').text()==65535){
-										key=$(this).find('ID').text();
-									}else{
-										key=$(this).find('ONID').text()+'-'+$(this).find('TSID').text()+'-'+$(this).find('SID').text()+'-'+$(this).find('eventID').text();
-									}
-									ReserveAutoaddList[key]=$(this);
-								});
-								action();
-							});
-						}
-					});
-				}else{
-					errMessage(info);
-					showSpinner();
-				}
-			}
+//検索条件を反映
+const setSerchSetting = s => {
+	if (s.searchSetting) s = s.searchSetting;
+	$('#disable').mdl_prop('checked', s.disableFlag);
+	$('#andKey').val(s.andKey);
+	$('#notKey').val(s.notKey);
+	$('#note').val(s.note);
+	$('#reg').mdl_prop('checked', s.regExpFlag);
+	$('#aimai').mdl_prop('checked', s.aimaiFlag);
+	$('#titleOnly').mdl_prop('checked', s.titleOnlyFlag);
+	$('#caseFlag').mdl_prop('checked', s.caseFlag);
+	$('#contentList').val(s.contentList.map(e => e.content_nibble));
+	$('#notcontet').mdl_prop('checked', s.notContetFlag);
+	$('#serviceList').val(s.serviceList.map(e => `${e.onid}-${e.tsid}-${e.sid}`));
+	$('#dateList_select,#dateList_touch').empty();
+	$('[name=dateList]').val(
+		s.dateList.map((e, i) => {
+			const val = `${Info.day[e.startDayOfWeek]}-${e.startHour}:${e.startMin}-${Info.day[e.endDayOfWeek]}-${e.endHour}:${e.endMin}`;
+			const txt = `${Info.day[e.startDayOfWeek]} ${zero(e.startHour)}:${zero(e.startMin)} ～ ${Info.day[e.endDayOfWeek]} ${zero(e.endHour)}:${zero(e.endMin)}`
+			dateList.add.select(val, txt);
+			dateList.add.touch(i, txt);
+			return val;
 		}
+	));
+	$('#notdate').mdl_prop('checked', s.notDateFlag);
+	$('[name=freeCAFlag]').val(s.freeCAFlag);
+	$('#DurationMin').val(s.chkDurationMin);
+	$('#DurationMax').val(s.chkDurationMax);
+	$('#chkRecEnd').mdl_prop('checked', s.chkRecEnd);
+	$('#chkRecNoService').mdl_prop('checked', s.chkRecNoService);
+	$('#chkRecDay').val(s.chkRecDay);
+}
+
+//EGP予約を反映
+const setAutoAdd = $e => {
+	showSpinner(true);
+	resetSidePanel('search_');
+	$e.addClass('open');
+
+	getList.autoaddepg(d => {
+		const id = $e.data('autoadd');
+		d = d[0].get(id);
+		if (d){
+			$('#set,#del').attr('action', `${ROOT}api/SetAutoAdd?id=${id}`);
+			$('#link_epginfo').attr('href', `autoaddepginfo.html?id=${id}`);
+			$('[name=presetID]').data('id', id).data('key', 'autoaddepg').val(65535);
+
+			setSerchSetting(d);
+			setRecSettting(d);
+
+			$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+		}else Snackbar('Error : 自動予約が見つかりませんでした');
+
+		showSpinner();
 	});
 }
 
-//予約をセット
-function setReserve(Reserve, id){
-	$('#set').attr('action', root + 'api/setReserve?id='+id);
-	$('#del').attr('action', root + 'api/setReserve?id='+id);
-	$('#progres').attr('action', root + 'api/setReserve?id='+id);
-	$('#action').attr('name', 'change');
-	$('#reserved, #delreseved, #toprogres').show();
-	$('[name=presetID]').data('reseveid', id).val(65535);
-	$('#reserve').text('変更');
+//プログラム予約を反映
+const setManuAdd = $e =>{
+	showSpinner(true);
+	resetSidePanel('manuadd');
+	$e.addClass('open');
 
-	setRecSettting(Reserve);
+	getList.autoaddmanual(d => {
+		const id = $e.data('manuadd');
+		d = d[0].get(id);
+		if (d){
+			$('#set,#del').attr('action', `${ROOT}api/SetManuAdd?id=${id}`);
+			$('#link_epginfo').attr('href', `autoaddmanualinfo.html?id=${id}`);
+			$('[name=presetID]').data('id', id).data('key', 'autoaddmanual').val(65535);
+
+			[...Array(7)].map((e, i)=>$(`#checkDayOfWeek${i+1}`).mdl_prop('checked', (d.dayOfWeekFlag & 2 ** i)>0));
+			$('#startTime-from').val(`${zero(Math.floor(d.starttime / 3600))}:${zero(Math.floor((d.starttime / 60) % 60))}:${zero(Math.floor(d.starttime % 60))}`);
+			$('#endTime-from').val(`${zero(Math.floor((d.endtime) / 3600))}:${zero(Math.floor(((d.endtime) / 60) % 60))}:${zero(Math.floor((d.endtime) % 60))}`);
+			$('#title-from').val(d.title);
+			$('#serviceID').val(`${d.onid}-${d.tsid}-${d.sid}`);
+			setRecSettting(d);
+
+			$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+		}else Snackbar('Error : プログラム予約が見つかりませんでした');
+
+		showSpinner();
+	});
+}
+
+//録画結果を反映
+const setRecInfo = async $e => {
+	showSpinner(true);
+	const id = $e.data('recinfo');
+	const d = Info.recinfoEX[id] ?? await $.get(`${ROOT}api/EnumRecInfo?id=${id}`).then(xml => {
+		if ($(xml).find('recinfo').length) return Info.recinfoEX[id] = toObj.EpgInfo($(xml).find('recinfo').first());
+		else errMessage($(xml));
+	});
+	showSpinner();
+
+	if (!d) return;
+
+	setEpgInfo(d, $e);
+
+	$('#path').text(d.recFilePath);
+	$('#comment').text(d.comment).parent().removeClass((i,e)=>(e.match(/\bmdl-color\S+/g) || []).join(' ')).addClass(mdlChip.getColorClass(d.comment));
+	$('#drops').text(d.drops).parent().toggleClass('mdl-color-text--red-A700', Boolean(d.drops));
+	$('#scrambles').text(d.scrambles).parent().toggleClass('mdl-color-text--red-A700', Boolean(d.scrambles));
+
+	$('pre').text(d.errInfo);
+
+	$('#del').attr('action', `${ROOT}api/SetRecInfo?id=${d.id}`).next('button').prop('disabled', d.protect);
+	$('#link_epginfo').attr('href', `recinfodesc.html?id=${d.id}`);
 
 	$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
-	showSpinner();
 }
 
-//EGP予約をセット
-function setAutoAdd(target){
-	showSpinner(true);
-	$('.mdl-tabs__panel').addClass('is-active').scrollTop(0);
-	$('[href="#recset"], #recset, #sidePanel, .clicked, .open').removeClass('is-visible is-active clicked open');
-	$('[href="#search_"], #search_').addClass('is-active');
-	target.addClass('open');
-	$('.sidePanel-content').scrollTop(0);
+//予約を反映
+const setReserve = (r, fn) => {
+	const id = setRecSettting(r).id;
 
-	function action(){
-		var id = target.data('id');
-		var autoadd=ReserveAutoaddList[id];
-		if (autoadd){
-			$('#set').attr('action', root + 'api/SetAutoAdd?id='+id);
-			$('#del').attr('action', root + 'api/SetAutoAdd?id='+id);
-			$('#link_epginfo').attr('href', 'autoaddepginfo.html?id='+id);
+	$('#set,#del,#progres').attr('action', `${ROOT}api/SetReserve?id=${id}`);
+	$('#action').attr('name', 'change');
+	$('#reserved, #delreseved, #toprogres').show();
+	$('[name=presetID]').data('id', r.eid == 65535 ? r.id : `${r.onid}-${r.tsid}-${r.sid}-${r.eid}`).data('key', 'reserve').val(65535);
+	$('#reserve').text('変更');
 
-			if (autoadd.find('disableFlag').text() == 1){
-				$('#disable').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#disable').prop('checked', false).parent().removeClass('is-checked');
-			}
-			$('#andKey').val(autoadd.find('andKey').text());
-			$('#notKey').val(autoadd.find('notKey').text());
-			if (autoadd.find('regExpFlag').text() == 1){
-				$('#reg').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#reg').prop('checked', false).parent().removeClass('is-checked');
-			}
-			if (autoadd.find('aimaiFlag').text() == 1){
-				$('#aimai').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#aimai').prop('checked', false).parent().removeClass('is-checked');
-			}
-			if (autoadd.find('titleOnlyFlag').text() == 1){
-				$('#titleOnly').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#titleOnly').prop('checked', false).parent().removeClass('is-checked');
-			}
-			if (autoadd.find('caseFlag').text() == 1){
-				$('#caseFlag').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#caseFlag').prop('checked', false).parent().removeClass('is-checked');
-			}
-			var contentList=[];
-			autoadd.find('contentList').each(function(){
-				contentList.push($(this).find('content_nibble').text());
-			});
-			$('#contentList').val(contentList);
-			if (autoadd.find('notContetFlag').text() == 1){
-				$('#notcontet').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#notcontet').prop('checked', false).parent().removeClass('is-checked');
-			}
-			var service=[];
-			autoadd.find('serviceList').each(function(){
-				service.push($(this).find('onid').text()+'-'+$(this).find('tsid').text()+'-'+$(this).find('sid').text());
-			});
-			$('#service').val(service);
-			$('#dateList_select,#dateList_touch').empty();
-			$('[name=dateList]').val('');
-			autoadd.find('dateList').each(function(){
-				var DayOfWeek = ['日','月','火','水','木','金','土'];
-				var time = {
-					startDayOfWeek: DayOfWeek[$(this).find('startDayOfWeek').text()],
-					startMin: $(this).find('startMin').text(),
-					startHour: $(this).find('startHour').text(),
-					endDayOfWeek: DayOfWeek[$(this).find('endDayOfWeek').text()],
-					endHour: $(this).find('endHour').text(),
-					endMin: $(this).find('endMin').text()
-				};
-				$('#dateList_select').append('<option value="' + time.startDayOfWeek + '-' + time.startHour + ':' + time.startMin + '-' + time.endDayOfWeek + '-' + time.endHour + ':' + time.endMin + '">' + time.startDayOfWeek + ' ' + time.startHour + ':' + time.startMin + ' ～ ' + time.endDayOfWeek + ' ' + time.endHour + ':' + time.endMin + '</otion>');
-				var val;
-				var html = '';
-
-				$('#dateList_select option').each(function(i){
-					if (val){ val += ','; }else{ val = ''; }
-					val += $(this).val();
-					html += '<li class="mdl-list__item" data-count="' + i + '"><span class="mdl-list__item-primary-content">' + $(this).text() + '</span></li>';
-				});
-				$('[name=dateList]').val(val);
-				$("#dateList_touch").html(html);
-			});
-			if (autoadd.find('notDateFlag').text() == 1){
-				$('#notdate').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#notdate').prop('checked', false).parent().removeClass('is-checked');
-			}
-			$('[name=freeCAFlag]').val(autoadd.find('freeCAFlag').text());
-			$('#DurationMin').val(autoadd.find('chkDurationMin').text());
-			$('#DurationMax').val(autoadd.find('chkDurationMax').text());
-			if (autoadd.find('chkRecEnd').text() == 1){
-				$('#chkRecEnd').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#chkRecEnd').prop('checked', false).parent().removeClass('is-checked');
-			}
-			if (autoadd.find('chkRecNoService').text() == 1){
-				$('#chkRecNoService').prop('checked', true).parent().addClass('is-checked');
-			}else{
-				$('#chkRecNoService').prop('checked', false).parent().removeClass('is-checked');
-			}
-			$('#chkRecDay').val(autoadd.find('chkRecDay').text());
-			$('[name=presetID]').data('autoaddid', id).val(65535);
-
-			setRecSettting(autoadd);
-
-			$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
-			showSpinner();
-		}else{
-			Snackbar.MaterialSnackbar.showSnackbar({message: 'Error : 自動予約が見つかりませんでした'});
-			showSpinner();
-		}
-	}
-
-	$.get(root + 'api/Common', {notify: 4}, function(result, textStatus, xhr){
-		var Count = $(xhr.responseXML).find('info').text();
-		if(ReserveAutoaddList && Count == notifyCount){
-			action();
-		}else{
-			notifyCount = Count;
-			sessionStorage.setItem('notifyCount', notifyCount);
-			$.get(root + 'api/EnumAutoAdd', function(result, textStatus, xhr){
-				ReserveAutoaddList={};
-				$(xhr.responseXML).find('autoaddinfo').each(function(){
-					ReserveAutoaddList[$(this).find('ID').text()]=$(this);
-				});
-				action();
-			});
-		}
-	});
-}
-
-//録画結果をセット
-function setRecInfo(target){
-	showSpinner(true);
-	$('.mdl-tabs__panel').addClass('is-active').scrollTop(0);
-	$('[href="#error"], #error, #sidePanel, .clicked, .open').removeClass('is-visible is-active clicked open');
-	$('[href="#detail"], #detail').addClass('is-active');
-	target.addClass('open');
-	$('.sidePanel-content').scrollTop(0);
-
-	$.get(root + 'api/EnumRecInfo?id='+target.data('recinfoid'), function(result, textStatus, xhr){
-		var xml = $(xhr.responseXML);
-		if (xml.find('recinfo').length > 0){
-			xml = xml.find('recinfo').first();
-			var e = ConvertEpgInfo(xml);
-
-			e.recinfoid = Number(xml.children('ID').text());
-			if (xml.children('programInfo').text().length>0){
-				var programInfo=xml.children('programInfo').text().match(/^[\s\S]*?\n\n([\s\S]*?)\n+(?:詳細情報\n)?([\s\S]*?)\n+ジャンル : \n([\s\S]*)\n\n映像 : ([\s\S]*)\n音声 : ([\s\S]*?)\n\n([\s\S]*)\n$/);
-				e.text = programInfo[1];
-				e.text_ext = programInfo[2];
-				e.genre = programInfo[3];
-				e.video = programInfo[4];
-				e.audio = programInfo[5];
-				e.other = programInfo[6].replace(/\n\n/g,'\n');
-			}
-
-			setEpgInfo(e);
-
-			$('#path').text(xml.children('recFilePath').text());
-			$('#comment').text(xml.children('comment').text());
-			$('#drops').text(xml.children('drops').text());
-			$('#scrambles').text(xml.children('scrambles').text());
-
-			$('pre').text(xml.children('errInfo').text());
-
-			$('#del').attr('action', root + 'api/SetRecInfo?id='+ e.recinfoid).next('button').prop('disabled', xml.children('protect').text()=='1');
-			$('#link_epginfo').attr('href', 'recinfodesc.html?id='+ e.recinfoid);
-
-			$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
-			showSpinner();
-		}else{
-			errMessage(xml);
-			showSpinner();
-		}
-	});
-}
-
-//録画フォルダパス作成
-function recFolderInfo(i, val, partial){
-	var div = '<div>';
-	var cell = 'mdl-cell';
-	var container = 'mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing';
-	var select = 'mdl-cell pulldown mdl-grid mdl-grid--no-spacing';
-	var textfield = 'mdl-cell mdl-textfield mdl-js-textfield';
-	var delbtn = 'delPreset mdl-button mdl-button--icon mdl-button--mini-icon mdl-js-button';
-	var middle = 'mdl-cell mdl-cell--middle';
-	var recNamePlugIn = val.recNamePlugIn.match(/^(.*\.dll)?(?:\?(.*))?/);
-	partial = partial ? 'partial' : '';
-	return $(div, {class: 'preset '+container, append: [
-				$(div, {class: delbtn, click: function(){delPreset(this);}, html:
-					$('<i>', {class: 'material-icons', text: 'delete'}) }),
-				$(div, {class: container, append: [
-					$(div, {class: middle, text: 'フォルダ'}),
-					$(div, {class: textfield, append: [
-						$('<input>', {class: 'has-icon mdl-textfield__input recFolderList', type: 'text', name: partial+'recFolder', id: partial+'recFolder'+i, value: val.recFolder, autocomplete: 'off'}),
-						$('<label>', {class: 'mdl-textfield__label', for: partial+'recFolder', text: 'フォルダ'}) ]}) ]}),
-				$(div, {class: container, append: [
-					$(div, {class: middle, text: '出力PlugIn'}),
-					$(div, {class: select, html:
-						$('<select>', {name: partial+'writePlugIn', html:
-							$('#Write').html(), val: val.writePlugIn }) }) ]}),
-				$(div, {class: container, append: [
-					$(div, {class: middle, text: 'ファイル名PlugIn'}),
-					$(div, {class: select, html:
-						$('<select>', {name: partial+'recNamePlugIn', html:
-							$('#RecName').html(), val: recNamePlugIn[1]}) }) ]}),
-				$(div, {class: container, append: [
-					$(div, {class: middle, text: 'オプション'}),
-					$(div, {class: textfield, append: [
-						$('<input>', {class: 'has-icon mdl-textfield__input', type: 'text', name: partial+'recName', id: partial+'recName'+i, val: recNamePlugIn[2], autocomplete: 'off'}),
-						$('<label>', {class: 'mdl-textfield__label', for: partial+'recName'+i, text: 'ファイル名PlugIn'}),
-						$('<i>', {class: 'addmacro material-icons', text: 'add', click: function(){macro(this);} }) ]}) ]}) ]});
-}
-//録画フォルダパス削除
-function delPreset(obj){
-	obj = $(obj).parent();
-	var target = obj.next();
-	var clone = obj.clone(true);
-	obj.remove();
-	var data = {
-		message: '削除しました',
-		timeout: 2000,
-		actionHandler: function(){
-			clone.insertBefore(target);
-			Snackbar.MaterialSnackbar.showSnackbar({message: '元に戻しました'})
-		},
-		actionText: '元に戻す'
-	};
-	Snackbar.MaterialSnackbar.showSnackbar(data);
-}
-
-//録画設定をセット
-function setRecSettting(self){
-	var recset = self.children('recsetting');
-	//録画モード
-	$('[name=recMode]').val(recset.children('recMode').text());
-	//追従
-	if (recset.children('tuijyuuFlag').text() == 1){
-		$('[name=tuijyuuFlag]').prop('checked', true).parent().addClass('is-checked');
+	if (fn){
+		fn();
 	}else{
-		$('[name=tuijyuuFlag]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	//優先度
-	$('[name=priority]').val(recset.children('priority').text());
-	//ぴったり(？)録画
-	if (recset.children('pittariFlag').text() == 1){
-		$('[name=pittariFlag]').prop('checked', true).parent().addClass('is-checked');
-	}else{
-		$('[name=pittariFlag]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	//録画後動作
-	$('[name=suspendMode]').val(recset.children('suspendMode').text());
-	//復帰後再起動
-	if ($('[name=suspendMode]').val()==0){
-		$('.reboot').addClass('is-disabled');
-	}else{
-		$('.reboot').removeClass('is-disabled');
-	}
-	if (recset.children('rebootFlag').text() == 1){
-		$('[name=rebootFlag]').prop('checked', true).parent().addClass('is-checked');
-	}else{
-		$('[name=rebootFlag]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	//録画マージン
-	if (recset.children('useMargineFlag').text() == 0){
-		$('[name=useDefMarginFlag]').prop('checked', true).parent().addClass('is-checked');
-		$('.recmargin').addClass('is-disabled').find('.mdl-textfield').addClass('is-disabled').find('input').prop('disabled', true);
-	}else{
-		$('[name=useDefMarginFlag]').prop('checked', false).parent().removeClass('is-checked');
-		$('.recmargin').removeClass('is-disabled').find('.mdl-textfield').removeClass('is-disabled').find('input').prop('disabled', false);
-	}
-	//開始
-	$('[name=startMargin]').val(recset.children('startMargine').text());
-	//終了
-	$('[name=endMargin]').val(recset.children('endMargine').text());
-	//指定サービス対象データ
-	var serviceMode = recset.children('serviceMode').text();
-	if (serviceMode%2 == 0){
-		$('[name=serviceMode]').prop('checked', true).parent().addClass('is-checked');
-		$('.smode').find('.mdl-checkbox').addClass('is-disabled').find('input').prop('checked', false).prop('disabled', true);
-		serviceMode = recset.children('defserviceMode').text();
-	}else{
-		$('[name=serviceMode]').prop('checked', false).parent().removeClass('is-checked');
-		$('.smode').find('.mdl-checkbox').removeClass('is-disabled').find('input').prop('disabled', false);
-	}
-	if ((Math.floor(serviceMode/16)%2) != 0){
-		$('[name=serviceMode_1]').prop('checked', true).parent().addClass('is-checked');
-	}else{
-		$('[name=serviceMode_1]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	if ((Math.floor(serviceMode/32)%2) != 0){
-		$('[name=serviceMode_2]').prop('checked', true).parent().addClass('is-checked');
-	}else{
-		$('[name=serviceMode_2]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	//連続録画動作
-	if (recset.children('continueRecFlag').text() == 1){
-		$('[name=continueRecFlag]').prop('checked', true).parent().addClass('is-checked');
-	}else{
-		$('[name=continueRecFlag]').prop('checked', false).parent().removeClass('is-checked');
-	}
-	//使用チューナー強制指定
-	$('[name=tunerID]').val(recset.children('tunerID').text());
-
-	//プリセット
-	//録画後実行bat
-	$('.preset').remove();
-
-	var batFilePath = recset.children('batFilePath').text().match(/^([^*]*)\*?([\s\S]*)$/);
-	if ($('[name="batFilePath"] option[value="' + batFilePath[1].replace(/[ !"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~]/g, '\\$&') + '"]').length == 0){
-		$('[name="batFilePath"]').append($('<option>', {value: batFilePath[1], text: batFilePath[1]}));
-	}
-	$('[name="batFilePath"]').val(batFilePath[1]);
-	$('[name="batFileTag"]').val(batFilePath[2]);
-	var recFolderList = recset.children('recFolderList');
-	if (recFolderList.text().length > 0){
-		$(recFolderList).children('recFolderInfo').each(function(i){
-			var val = {
-				recFolder: $(this).children('recFolder').text(),
-				writePlugIn: $(this).children('writePlugIn').text(),
-				recNamePlugIn: $(this).children('recNamePlugIn').text()
-			}
-			$('#preset .addPreset').before(recFolderInfo(i, val));
-		});
-	}
-	//部分受信プリセット
-	var partialRecFolder = recset.children('partialRecFolder');
-	if (partialRecFolder.text().length > 0){
-		$(partialRecFolder).children('recFolderInfo').each(function(i){
-			var val = {
-				recFolder: $(this).children('recFolder').text(),
-				writePlugIn: $(this).children('writePlugIn').text(),
-				recNamePlugIn: $(this).children('recNamePlugIn').text()
-			}
-			$('#partialpreset .addPreset').before(recFolderInfo(i, val, true));
-		});
-	}
-	componentHandler.upgradeDom();
-	//部分受信サービス
-	if (recset.children('partialRecFlag').text() == 1){
-		$('[name=partialRecFlag]').prop('checked', true).parent().addClass('is-checked');
-		$('#partialpreset').show();
-	}else{
-		$('[name=partialRecFlag]').prop('checked', false).parent().removeClass('is-checked');
-		$('#partialpreset').hide();
-	}
-
-	if (self.children('name').text().length > 0){
-		return self.children('name').text();
-	}else{
-		return $('[name=presetID] option:selected').text();
+		$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+		showSpinner();
 	}
 }
 
 //デフォルト読込
-function setDefault(mark){
-	if (PresetList){
-		setRecSettting(PresetList['0']);
+const setDefault = mark => {
+	getList.recpreset(d => {
+		setRecSettting(d[0].get(0));
 
-		$('#set').attr('action', root + 'api/setReserve');
+		$('#set').attr('action', `${ROOT}api/SetReserve`);
 		$('#action').attr('name', 'add');
 		$('#reserved, #delreseved, #toprogres').hide();
 		$('[name=presetID]').val(0);
 		$('#reserve').text('予約追加');
 
-		if (mark){
-			$('.open .mark.reserve').remove();
-			$('.open .addreserve').data('id', false).data('oneclick', 1).data('toggle', 0).text('予約追加');
-			$('.open .reserve').removeClass('reserve disabled partially shortage view');
-			$('.open .flag').data('id', false).data('oneclick', 1).data('toggle', 0).html($('<span>', {class:'search add mdl-button mdl-js-button mdl-button--fab mdl-button--colored',click:function(){reserve($(this));},html:'<i class="material-icons">add</i>'}));
-		}
-	}else{
-		$.get(root + 'api/EnumRecPreset', function(result, textStatus, xhr){
-			PresetList = {};
-			$(xhr.responseXML).find('recpresetinfo').each(function(){
-				PresetList[$(this).find('id').text()]=$(this);
-			});
-			setDefault(mark);
-		});
-	}
-}
+		if (!mark) return;
 
-//予約処理
-function reserve(obj){
-	showSpinner(true);
-	var data = obj.parents('td').data();
-	data.ctok = ctok;
-
-	$.ajax({
-		url: root + 'api/setReserve',
-		data: data,
-
-		success: function(result, textStatus, xhr) {
-			var xml = $(xhr.responseXML);
-			if (xml.find('success').length > 0){
-				var start = new Date(xml.find('startDate').text().replace(/\//g,'-')+'T'+xml.find('startTime').text()+'+09:00');
-				var recmode = xml.find('recMode').text();
-				var overlapmode = xml.find('overlapMode').text();
-				var id = xml.find('ID').text();
-
-				var mode = '';
-				if (recmode == 5){//無効
-					mode = 'disabled';
-				}else if (overlapmode == 1){//チューナー不足
-					mode = 'partially';
-				}else if (overlapmode == 2){//一部録画
-					mode = 'shortage';
-				}
-
-				var parents = obj.parents('tr');
-				if (obj.hasClass('search')){//検索ページ向け
-					parents = obj.parents('td').data('id', id);
-					//スイッチ追加
-					if (start < Date.now()){
-						obj.removeClass().addClass('search recmark').empty();
-						if (recmode != 5) obj.unbind('click');
-					}else if (!obj.hasClass('addreserve')){
-						var reserveid = 'reserve' + id;
-						var label = $('<label>', {
-							class: 'mdl-switch mdl-js-switch',
-							for: reserveid,
-							html: $('<input>', {
-								id: reserveid,
-								class: 'search addreserve mdl-switch__input',
-								type: 'checkbox',
-								checked: recmode != 5,
-								change: function(){reserve($(this));}
-							})
-						});
-						componentHandler.upgradeElement(label.get(0));
-
-						var mark = $('<span>').html(label);
-						parents.data('toggle', 1).data('oneclick', 0).html(mark);
-						setTimeout(function(){
-							parents.parent('tr').addClass('start');
-							mark.addClass('recmark').empty();
-						}, start-Date.now());
-					}
-				}
-				parents.removeClass('disabled partially shortage').addClass(mode);
-				if (recmode != 5 && obj.hasClass('mdl-switch__input')){
-					obj.prop('checked', true).parent().addClass('is-checked');
-				}else{
-					obj.prop('checked', false).parent().removeClass('is-checked');
-				}
-			}else{
-				if (obj.hasClass('mdl-switch__input')){
-					if (obj.prop('checked')){
-						obj.prop('checked', false).parent().removeClass('is-checked');
-					}else{
-						obj.prop('checked', true).parent().addClass('is-checked');
-					}
-				}
-				errMessage(xml);
-			}
-			showSpinner();
-		}
+		$('.open .mark.reserve').remove();
+		$('.open .addreserve').data('id', false).data('oneclick', 1).text('予約追加');
+		$('.open .reserve').removeClass('reserve disabled partially shortage view');
+		$('.open .flag').data('id', false).data('oneclick', 1).html($('<span>', {class:'search add mdl-button mdl-js-button mdl-button--fab mdl-button--colored', click: e => addReserve($(e.currentTarget)), html:'<i class="material-icons">add</i>'}));
 	});
 }
 
 //録画マーク追加
-function addMark(xml, target, content){
-	var recmode = xml.find('recMode').text();
-	var overlapmode = xml.find('overlapMode').text();
-	var id = xml.find('ID').text();
-	var messege, button, mark;
+const addRecMark = (r, $target, $content) => {
+	if ($('.open').hasClass('epginfo')) return;
 
-	if (recmode == 5){
-		messege = '無効';
-		button = '有効';
-		recmode = 'disabled';
-		mark = '無';
+	if (!r.recSetting) r = toObj.RecSet(r);
+	const rs = r.recSetting;
+	const mode = !rs.recEnabled ? 'disabled' :
+		rs.overlapMode == 1 ? 'partially' :
+		rs.overlapMode == 2 ? 'shortage' :
+		rs.recMode == 4 ? 'view' : '';
+	const mark = !rs.recEnabled ? '無' :
+		rs.overlapMode == 1 ? '部' :
+		rs.overlapMode == 2 ? '不' :
+		rs.recMode == 4 ? '視' : '録';
+	$target.data('id', r.id).data('toggle', rs.recEnabled ? 0 : 1).data('oneclick', 0).text(rs.recEnabled ? '無効' : '有効');
+	$content.not('.reserve').find('.startTime').after('<span class="mark reserve"></span>');
+	$content.removeClass('disabled partially shortage view').addClass(`reserve ${mode}`).find('.mark.reserve').text(mark);
+
+	return rs.recEnabled ? '有効' : '無効';
+}
+
+const createSwitch = d => {
+	if (!d.id) return $('<span>', {
+		class: 'search add mdl-button mdl-js-button mdl-button--fab mdl-button--colored',
+		click(){addReserve($(this))},
+		html: '<i class="material-icons">add'
+	});
+
+	const id = `reserve${d.id}`;
+	return $('<span>', {
+		append: $('<label>', {
+			class: 'mdl-switch mdl-js-switch',
+			for: id,
+			html: $('<input>', {
+				id: id,
+				class: 'mdl-switch__input',
+				type: 'checkbox',
+				checked: d.recSetting.recEnabled,
+				change(){
+					$(this).parents('td').data('toggle', $(this).prop('checked') ? 1 : 0);
+					addReserve($(this));
+				}
+			})
+		})
+	});
+}
+
+//一覧の録画トグル
+const fixRecToggleSW = (d, $e = $('.open')) => {
+	if ($e.hasClass('cell')) return;
+
+	if (!d.recSetting) d = toObj.RecSet(d);
+
+	const $input = $e.find('input');
+	//検索ページ向け
+	if ($e.hasClass('search')){
+		//スイッチ追加
+		if (!$e.data('starttime')){
+			$e.data('starttime', d.starttime - d.recSetting.startMargine * 1000);
+			const $switch = createSwitch(d);
+			componentHandler.upgradeElement($switch.children().get(0));
+
+			$e.find('.flag').data('id', d.id).removeData('oneclick').html($switch);
+			createHtml.load();
+		}
+		$e = $e.find('.flag');
+	}
+
+	const mode = !d.recSetting.recEnabled ? 'disabled' :	//無効
+		d.recSetting.overlapmode == 1 ? 'partially' :		//チューナー不足
+		d.recSetting.overlapmode == 2 ? 'shortage' : '';	//一部録画
+
+	$e.removeClass('disabled partially shortage').addClass(mode);
+	$input.mdl_prop('checked', d.recSetting.recEnabled);
+}
+
+//プログラム予約
+const progReserve = d => {
+	start = createViewDate(d.starttime);
+	end = d.endtime ? createViewDate(d.endtime) : start;
+	$('#startdate').val(`${start.getUTCFullYear()}-${zero(start.getUTCMonth()+1)}-${zero(start.getUTCDate())}`);
+	$('#starttime').val(`${zero(start.getUTCHours())}:${zero(start.getUTCMinutes())}:${zero(start.getUTCSeconds())}`);
+	$('#endtime').val(`${zero(end.getUTCHours())}:${zero(end.getUTCMinutes())}:${zero(end.getUTCSeconds())}`);
+
+	$('#toprogres').text(`プログラム予約${d.eid != 65535 ? '化' : ''}`);
+	$('#progres p').toggle(d.eid != 65535);
+}
+
+//番組詳細を取得
+const getEpgInfo = async ($e, d = $e.data()) => {
+	showSpinner(true);
+	const rid = d.next ? d.nextid : d.id || $e.find('.addreserve').data('id') || $e.children('.flag').data('id');
+	if ((d.next ? d._eid : d.eid) == 65535){
+		getList.reserve(r => {
+			r = r[0].get(rid);
+			if (r){
+				setEpgInfo(r, $e);
+				setReserve(r);
+
+				$('#link_epginfo').attr('href', `reserveinfo.html?id=${rid}`);
+				$('[href="#detail"], #detail').removeClass('is-active');
+				$('[href="#recset"], #recset').addClass('is-active');
+			}else{
+				createHtml.create();
+				Snackbar('予約が見つかりませんでした');
+			}
+			showSpinner();
+		});
 	}else{
-		messege = '有効';
-		button = '無効';
-		if (overlapmode == 1){
-			recmode = 'partially';
-			mark = '部';
-		}else if (overlapmode == 2){
-			recmode = 'shortage';
-			mark = '不';
-		}else if (recmode == 4){
-			recmode = 'view';
-			mark = '視';
-		}else{
-			recmode = '';
-			mark = '録';
+		const id = `${d.onid}-${d.tsid}-${d.sid}-${d.next ? d._eid : d.eid || d.starttime}`
+		const info = Info.EventInfo[id] ?? await $.get(`${ROOT}api/EnumEventInfo`, {basic: 0, id: id}).then(xml => {
+			if ($(xml).find('eventinfo').length) return Info.EventInfo[id] = toObj.EpgInfo($(xml).find('eventinfo').first());
+			else {
+				errMessage($(xml));
+				showSpinner();
+			}
+		});
+		if (info){
+			setEpgInfo(info, $e, id);
+			if (!d.eid){
+				$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+				showSpinner();
+				return;
+			};
+			getList.reserve(r => {
+				r = r[0].get(id);
+				if (r){
+					if (!rid){															//追加されてた
+						if ($e.hasClass('onair')) $e.data(`${d.next ? 'next' : ''}id`, r.id);
+						else if ($e.hasClass('reserve')) fixRecToggleSW(r);
+						else addRecMark(r, $('.open .addreserve'), $('.open .content-wrap'));
+					}
+					setReserve(r);
+				}else if (rid){															//削除されてた
+					if ($e.hasClass('reserve')){
+						createHtml.create();
+					}else{
+						if ($e.hasClass('onair')) $e.removeData(`${d.next ? 'next' : ''}id`);
+
+						setDefault(true);
+						$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+					}
+					if (!$e.hasClass('onair')) Snackbar('予約が見つかりませんでした');
+				}else{
+					$('#sidePanel, .close_info.mdl-layout__obfuscator').addClass('is-visible');
+					setDefault();
+				}
+				showSpinner();
+			});
 		}
 	}
-	target.data('id', id).data('toggle', 1).data('oneclick', 0).text(button);
-	content.not('.reserve').find('.startTime').after('<span class="mark reserve"></span>');
-	content.removeClass('disabled partially shortage view').addClass('reserve ' + recmode).find('.mark.reserve').text(mark);
-
-	return messege;
 }
 
-function is_small_screen(){
-	return window.matchMedia(window.MaterialLayout.prototype.Constant_.MAX_WIDTH).matches;
+//予約送信
+const sendReserve = (d, fn) => {
+	d.ctok = ctok;
+	showSpinner(true);
+	$.get(`${ROOT}api/SetReserve`, d).done(xml => {
+		if ($(xml).find('success').length){
+			fn.success($(xml).find('reserveinfo'));
+		}else{
+			fn.err();
+			errMessage($(xml));
+		}
+		if (fn.end) fn.end();
+		showSpinner();
+	});
 }
 
-$(window).on('load resize', function(){
-	var MAX_WIDTH = window.matchMedia('(max-width: 700px)').matches;
-	$('#add_dateList').prop('disabled', MAX_WIDTH && !$('#dateList_edit').hasClass('is-visible'));
+//予約処理
+const addReserve = $e => {
+	sendReserve($e.parents('td').data(), {
+		success: xml => fixRecToggleSW(xml, $e.parents('tr')),
+		err: () => {if ($e.hasClass('mdl-switch__input')) $e.mdl_prop('checked', !$e.prop('checked'));}
+	});
+}
+
+$(window).on('load resize', () => {
+	const OVER700 = !window.matchMedia('(max-width: 700px)').matches;
 	//マクロ補助
-	if (MAX_WIDTH){
-		$('.shrink-phone').show();
-		$('.check-shrink-phone').prop('checked', true);
-		$('.drawer-separator.mdl-cell--hide-desktop').hide();
-	}else{
-		$('.shrink-phone').hide();
-		$('.check-shrink-phone').prop('checked', false);
-		$('.drawer-separator.mdl-cell--hide-desktop').show();
-	}
+	$('.shrink-phone').toggle(OVER700);
+	$('.check-shrink-phone').prop('checked', OVER700);
+	$('.drawer-separator.mdl-cell--hide-desktop').toggle(!OVER700);
 });
 
 //サービスワーカーの登録
-if ("serviceWorker" in navigator) {
-	navigator.serviceWorker.register("serviceworker.js");
-}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("serviceworker.js");
 
 $(function(){
-	Snackbar = document.querySelector('.mdl-js-snackbar');
+	$('.mdl-js-snackbar').on('mdl-componentupgraded', () => Snackbar = d => document.querySelector('.mdl-js-snackbar').MaterialSnackbar.showSnackbar(typeof d === 'string' ? {message: d} : d));
 
 	//スワイプ
 	if (isTouch){
 		delete Hammer.defaults.cssProps.userSelect;
 		//drawer表示
-		$('.drawer-swipe').hammer().on('swiperight', function(){
-			$('.mdl-layout__drawer-button').click();
-		});
+		$('.drawer-swipe').hammer().on('swiperight', () => $('.mdl-layout__drawer-button').click());
 
 		//タブ移動
-		$('.tab-swipe').hammer().on('swiperight', function(){
-			tab( $('.mdl-layout__tab.is-active').prev() );
-		});
-		$('.tab-swipe').hammer().on('swipeleft', function(){
-			tab( $('.mdl-layout__tab.is-active').next() );
-		});
-		$('.panel-swipe').hammer().on('swiperight', function(){
-			tab( $('.mdl-tabs__tab.is-active').prev() );
-		});
-		$('.panel-swipe').hammer().on('swipeleft', function(){
-			tab( $('.mdl-tabs__tab.is-active').next() );
-		});
+		const moveTab = $e => {
+			if (!$e.length || document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement | document.msFullscreenElement) return
+			$e.get(0).click();
+		}
+		$('.tab-swipe'  ).hammer().on('swiperight', () => moveTab($('.mdl-layout__tab.is-active').prev()));
+		$('.tab-swipe'  ).hammer().on('swipeleft' , () => moveTab($('.mdl-layout__tab.is-active').next()));
+		$('.panel-swipe').hammer().on('swiperight', () => moveTab($('.mdl-tabs__tab.is-active').prevAll(':visible:first')));
+		$('.panel-swipe').hammer().on('swipeleft' , () => moveTab($('.mdl-tabs__tab.is-active').nextAll(':visible:first')));
 	}
 
 	//一覧の行をリンクに
-	$('tr.epginfo').click(function(e){
-		if (!$(e.target).is('.flag, .flag *, .count a')){
-			if ($(this).data('onid')){
-				createSearchLinks(this);
-				getEpgInfo($(this));
-			}else if($(this).data('id')){
-				setAutoAdd($(this));
-			}else if($(this).data('recinfoid')){
-				setRecInfo($(this));
-			}else{
-				window.location = $(this).data('href');
-			}
-		}
+	$('.open-info').click(e => {
+		const $e = $(e.currentTarget);
+		if ($(e.target).is('.flag, .flag *, .count a')) return;
+
+		if ($e.data('onid')) getEpgInfo($e);
+		else if ($e.data('autoadd')) setAutoAdd($e);
+		else if ($e.data('manuadd')) setManuAdd($e);
+		else if ($e.data('recinfo')) setRecInfo($e);
+		else location.href = $e.data('href');
 	});
-	$('.close_info').click(function(){
-		$('#sidePanel, .close_info.mdl-layout__obfuscator, .open').removeClass('is-visible open');
-	});
+	$('.close_info').click(() => $('#sidePanel, .close_info.mdl-layout__obfuscator, .open').removeClass('is-visible open'));
 
 	//drawer ドロップダウン
-	$('.drop-down').click(function(){
-		$(this).next().slideToggle();
-	});
+	$('.drop-down').click(e => $(e.currentTarget).next().slideToggle());
 
 	//ダイアログ
-	if ($('dialog').length>0){
-		$('.show_dialog').click(function(){
-			var dialog = document.querySelector('dialog'+$(this).data('dialog'));
-			if (!dialog.showModal) dialogPolyfill.registerDialog(dialog);
-			dialog.showModal();
-		});
-	}
-	//閉じ
-	$('dialog .close').click(function(){
-		var dialog = document.querySelector('dialog'+$(this).data('dialog'));
-		if (!dialog.showModal) dialogPolyfill.registerDialog(dialog);
-		dialog.close();
-	});
+	const dialog = e => document.querySelector(`dialog${$(e.currentTarget).data('dialog')}`);
+	$('.show_dialog').click(e => dialog(e).showModal());
+	$('dialog .close').click(e => dialog(e).close());	//閉じ
 
-	$('.mdl-layout__tab').click(function(){
-		$('main').scrollTop(0);
-	});
-	//再生タブ
-	$('#movie_tab').click(function(){
-		if (!$('#video').data('load')){
-			if (!$('#video').data('public')) loadMovie($('#video'));
-			$('#video').trigger('load').data('load', true);
-		}
-	});
+	$('.mdl-layout__tab').click(() => $('main').scrollTop(0));
 
 	//通知
-	if (!isTouch && window.Notification){
+	if (!isMobile && !isTouch && 'Notification' in window){
 		if (Notification.permission == 'granted'){
 			$('.notification').removeClass('hidden');
 			//通知リスト読み込み
 			if (localStorage.getItem('notifications')){
-				var list = JSON.parse(localStorage.getItem('notifications'));
-				$.each(list, function(i, data){
-					var start = data.starttime;
-					if (start < Date.now()){
-						//時間が過ぎてたらリストから削除
-						saveNotify(data, true);
-					}else{
-						creatNotify(data);
-					}
-				});
+				const list = JSON.parse(localStorage.getItem('notifications'));
+				list.forEach(e => e.starttime < Date.now() ? Notify.save(e, true) : Notify.create(e));	//時間が過ぎてたらリストから削除
 			}
 		}else if (Notification.permission == 'default'){
 			//通知許可要求
-			Notification.requestPermission(function(result){
-				if (result == 'granted') $('.notification').removeClass('hidden');
-			});
+			Notification.requestPermission(result => {if (result == 'granted') $('.notification').removeClass('hidden');});
 		}
 	}
-	if ($('h4 .notify').length > 0 && !$('h4 .notify').attr('disabled')){
-		var timeout = $('.notify').data('starttime') - Date.now() - 30*1000;
-		setTimeout(function(){
-			$('.notify').attr('disabled', true).children().text('notifications');
-		}, timeout);
+	if ($('h4 .notify').length && !$('h4 .notify').attr('disabled')){
+		const interval = $('.notify').data('starttime') - Date.now();
+		setTimeout(() => $('.notify').attr('disabled', true).children().text('notifications'), interval);
 	}
-	$('.notify').click(function(){
-		var notify = $(this);
-		if (!notify.attr('disabled')){
-			var data = notify.data();
-			if (data.notification){
-				//登録済み通知削除
-				delNotify(data);
-			}else{
-				if (data.service){
-					data.title = notify.prevAll('.title').html();
-				}else{
-					data.title = notify.parents('.popup').prevAll('.mdl-typography--body-1-force-preferred-font').html();
-					data.service = notify.parents('.station').data('service');
-				}
+	$('.notify').click(e => {
+		const $e = $(e.currentTarget);
+		if ($e.attr('disabled')) return;
 
-				creatNotify(data, true);
+		const d = $e.data();
+		//登録済み通知削除
+		if (d.notification){
+			Notify.del(d);
+		}else{
+			if (d.service){
+				d.title = $e.prevAll('.title').html();
+			}else{
+				d.title = $e.parents('.popup').prevAll('.mdl-typography--body-1-force-preferred-font').html();
+				d.service = $e.parents('.station').data('service');
 			}
+
+			Notify.create(d, true);
 		}
 	});
 
 	//録画後動作の抑制
-	$('#nosuspend').click(function(){
-		$.post(root + 'api/Common', $(this).data(), function(result, textStatus, xhr){
-			var message = $(xhr.responseXML).find('info').text();
-			Snackbar.MaterialSnackbar.showSnackbar({message: message});
-			if (message.match('起動')){
-				$('#nosuspend').data('nosuspend', 'n').addClass('n').removeClass('y');
-			}else if (message.match('停止')){
-				$('#nosuspend').data('nosuspend', 'y').addClass('y').removeClass('n');
-			}
+	$('#nosuspend').click(e => {
+		$.post(`${ROOT}api/Common`, $(e.currentTarget).data()).done(xml => {
+			const message = $(xml).find('info').text();
+			Snackbar(message);
+			if (message.match('起動')) $('#nosuspend').data('nosuspend', 'n').addClass('n').removeClass('y');
+			else if (message.match('停止')) $('#nosuspend').data('nosuspend', 'y').addClass('y').removeClass('n');
 		});
 	});
 	//スタンバイ
-	var suspend = document.querySelector('dialog#dialog');
+	const suspend = document.querySelector('dialog#dialog');
 	if (suspend){
-		if (!suspend.showModal) dialogPolyfill.registerDialog(suspend);
-		$('#suspend').click(function(){
-			var self = $(this);
-			$('#dialog .mdl-dialog__content').html('<span>' + self.text() + 'に移行します');
-			$('#dialog .ok').unbind('click').click(function(){
+		$('#suspend').click(e => {
+			$('#dialog .mdl-dialog__content').html(`<span>${$(e.currentTarget).text()}に移行します`);
+			$('#dialog .ok').unbind('click').click(() => {
 				suspend.close();
-				$.post(root + 'api/Common', self.data(), function(result, textStatus, xhr){
-					Snackbar.MaterialSnackbar.showSnackbar({message: $(xhr.responseXML).find('info').text()});
-				});
+				$.post(`${ROOT}api/Common`, $(e.currentTarget).data()).done(xml => Snackbar($(xml).find('info').text()));
 			});
-		    suspend.showModal();
+			suspend.showModal();
 		});
 	}
 
 	//検索条件
 	//詳細検索
-	if (!$('#advanced').prop('checked')){
-		$('.advanced').hide();
-	}
-	$('#advanced').change(function(){
-		if ($(this).prop('checked')){
-			$('.advanced').show();
-			$('.network ').prop('disabled', true).hide();
-			$('.g_celar').not('.advanced').hide().prev().removeClass('has-button');
-		}else{
-			$('.advanced').hide();
-			$('.network ').prop('disabled', false).show().parent().removeClass('is-disabled');
-			$('.g_celar').not('.advanced').show().prev().addClass('has-button');
-		}
+	$('.advanced').toggle($('#advanced').prop('checked'));
+	$('#advanced').change(e => {
+		const enabled = $(e.currentTarget).prop('checked');
+		$('.advanced').toggle(enabled);
+		$('.g_celar').not('.advanced').toggle(!enabled).prev().toggleClass('has-button', !enabled);
+		$('#add_dateList').prop('disabled', $('#dateList_edit').is(':hidden'));
 	});
 	//ジャンル
-	$('#content').change(function(){
-		var val = $('#content').val();
+	$('#content').change(e => {
+		const val = $('#content').val();
 		$('#contentList option').show();
-		if (val != 'all'){
-			$('#contentList option').not(val).prop('selected', false).hide();
-			//サブジャンル表示設定保存
-			$(this).data('subGenre', $('#subGenre').prop('checked'));
-			$('#subGenre').prop('disabled', true).prop('checked', true).parent().addClass('is-disabled');
-		}else{
-			var subGenre = $(this).data('subGenre');
-			$('#subGenre').prop('disabled', false).prop('checked', subGenre).parent().removeClass('is-disabled');
-			if (!subGenre) $('.subGenre').hide();
-		}
+		$('#subGenre').mdl_prop('disabled', val != 'all');
+		if (val != 'all') $('#contentList option').not(val).prop('selected', false).hide();
+		else if (!$('#subGenre').prop('checked'))$('.subGenre').hide();
 	});
 	//全ジャンル選択解除
-	$('.g_celar').click(function(){
-		$('#contentList option').prop('selected', false);
-	});
+	$('.g_celar').click(() => $('#contentList option').prop('selected', false));
 	//サブジャンル
-	if (!$('#subGenre').prop('checked')){
-			$(".subGenre").hide();
-	}
-	$('#subGenre').change(function(){
-		if ($(this).prop('checked')){
-			$('.subGenre').show();
-		}else{
-			$('.subGenre').hide();
-		}
-	});
+	$(".subGenre").toggle($('#subGenre').prop('checked'));
+	$('#subGenre').change(e => $('.subGenre').toggle($(e.currentTarget).prop('checked')));
 	//サービス
 	//全選択
-	$('.all_select').click(function(){
-		$('#service option').not('.hide').prop('selected', true);
-	});
+	$('.all_select').click(() => $('#serviceList option').not('.hidden').prop('selected', true));
 	//映像のみ表示
-	$('#image').change(function(){
-		if ($(this).prop('checked')){
-			$('#service option.data').addClass('hide');
-		}else{
-			$('.extraction:checked').each(function(){
-				$('#service ' + $(this).val()).removeClass('hide');
-			});
-		}
+	$('#image').change(e => {
+		if ($(e.currentTarget).prop('checked')) $('#serviceList option.data').addClass('hidden');
+		else $('.extraction:checked').each((i, e) => $(`#serviceList ${$(e).val()}`).removeClass('hidden'))
 	});
 	//ネットワーク表示
-	$('.extraction').change(function(){
-		if ($(this).prop('checked')){
-			if ($('#image').prop('checked')){
-				$( $(this).val() ).not('.data').removeClass('hide');
-			}else{
-				$( $(this).val() ).removeClass('hide');
-			}
-		}else{
-			$($(this).val()).addClass('hide').prop('selected', false);
-		}
+	$('.extraction').change(e => {
+		const $e = $(e.currentTarget);
+		if ($e.prop('checked')) $('#image').prop('checked') ? $( $e.val() ).not('.data').removeClass('hidden') : $( $e.val() ).removeClass('hidden');
+		else $($e.val()).addClass('hidden').prop('selected', false);
 	});
 	//時間絞り込み
 	//切替
-	$('[name=dayList]').change(function(){
-		$('[name=dayList]').each(function(){
-			if ($(this).prop('checked')){
-				$(this).next().find('select').prop('disabled', false);
-				$(this).next().find('input').prop('disabled', false).parent().removeClass('is-disabled');
-			}else{
-				$(this).next().find('select').prop('disabled', true);
-				$(this).next().find('input').prop('disabled', true).parent().addClass('is-disabled');
-			}
+	$('[name=dayList]').change(() => {
+		$('[name=dayList]').each((i, e) => {
+			$(e).next().find('select').prop('disabled', !$(e).prop('checked'));
+			$(e).next().find('input').mdl_prop('disabled', !$(e).prop('checked'));
 		});
 	});
-	//[name=dateList]
-	function dateList(){
-		var val;
-		var html = '';
-
-		$('#dateList_select option').each(function(i){
-			if (val){ val += ','; }else{ val = ''; }
-			val += $(this).val();
-			html += '<li class="mdl-list__item" data-count="' + i + '"><span class="mdl-list__item-primary-content">' + $(this).text() + '</span></li>';
-		});
-		$('[name=dateList]').val(val);
-		$("#dateList_touch").html(html);
-	}
 	//追加
-	function add_time(time){
-		$('#dateList_select').append('<option value="'+ time.startDayOfWeek +'-'+ time.startTime +'-'+ time.endDayOfWeek +'-'+ time.endTime + '">' + time.startDayOfWeek +' '+ time.startTime +' ～ '+ time.endDayOfWeek +' '+ time.endTime + '</otion>');
-	}
-	$('#add_dateList').click(function(){
-		var time = {
-			startTime:$('#startTime').val(),
-			endTime:$('#endTime').val()
+	$('#add_dateList').click(() => {
+		const date = {
+			startTime: $('#startTime').val(),
+			endTime: $('#endTime').val()
 		};
 
 		if ($('#dayList').prop('checked')){
-			time.startDayOfWeek = $('#startDayOfWeek').val();
-			time.endDayOfWeek = $('#endDayOfWeek').val();
-			add_time(time);
+			date.startDayOfWeek = $('#startDayOfWeek').val();
+			date.endDayOfWeek = $('#endDayOfWeek').val();
+			dateList.add.select(date);
+		}else if (date.startTime > date.endTime){
+			Snackbar('開始 > 終了です');
+			return;
 		}else{
-			$('.DayOfWeek:checked').each(function(){
-				time.startDayOfWeek = $(this).val();
-				time.endDayOfWeek = $(this).val();
-				add_time(time);
+			$('.DayOfWeek:checked').each((i, e) => {
+				date.startDayOfWeek = $(e).val();
+				date.endDayOfWeek = $(e).val();
+				dateList.add.select(date);
 			});
 		}
-		dateList();
+		dateList.create();
 	});
 	//削除
-	$('#del_dateList').click(function(){
+	$('#del_dateList').click(() => {
 		$('#dateList_select option:selected').remove();
-		dateList();
+		dateList.create();
 	});
 	//選択
-	$(document).on('click', '#dateList_touch .mdl-list__item', function(){
-		$(this).toggleClass('mdl-color--accent mdl-color-text--accent-contrast');
-		var option = $('#dateList_select option').eq( $(this).data('count') );
-		if (option.prop('selected')){
-			option.prop('selected', false);
-		}else{
-			option.prop('selected', true);
-		}
-	});
+	$('#dateList_touch .mdl-list__item').click(e => dateList.click(e));
 	//編集表示
-	$('#edit_dateList').click(function(){
-		if ($('#dateList_edit').hasClass('is-visible')){
-			$('#edit_dateList .material-icons').text('expand_more');
-			$('#add_dateList').prop('disabled', true);
-		}else{
-			$('#edit_dateList .material-icons').text('expand_less');
-			$('#add_dateList').prop('disabled', false);
-		}
-		$('#dateList_edit').toggleClass('is-visible');
+	$('#add_dateList').prop('disabled', $('#dateList_edit').is(':hidden'));
+	$('#edit_dateList').click(() => {
+		const visible = $('#dateList_edit').hasClass('is-visible');
+		$('#edit_dateList .material-icons').text(`expand_${visible ? 'more' : 'less'}`);
+		$('#add_dateList').prop('disabled', visible);
+		$('#dateList_edit').toggleClass('is-visible', !visible);
 	});
 
-	$('.addmacro').click(function(){
-		macro(this);
-	});
-	$('.close.macro').click(function(){
+	//マクロ
+	$('.addmacro').click(e => openMacro($(e.currentTarget)));
+	$('.close.macro').click(() => {
 		$('input.is-active').removeClass('is-active');
 		$('#macro').removeClass('is-visible');
 	});
-	$('.macro-item').click(function(){
-		var elem = document.querySelector('input.is-active');
-		var start = elem.selectionStart;
-		var end = elem.selectionEnd;
-		var def = $('input.is-active').val();
-		var val = def.substr(0, start) + $(this).data('macro') + def.substr(end, def.length);
+	$('.macro-item').click(e => {
+		const elem = document.querySelector('input.is-active');
+		const start = elem.selectionStart;
+		const end = elem.selectionEnd;
+		const def = $('input.is-active').val();
+		const val = `${def.substr(0, start)}${$(e.currentTarget).data('macro')}${def.substr(end, def.length)}`;
 		$('input.is-active').val(val).removeClass('is-active').parent().addClass('is-dirty');
 		$('#macro').removeClass('is-visible');
 	});
@@ -1361,277 +1678,118 @@ $(function(){
 
 
 	//検索バーのアイコンクリックで検索
-	$('[for=header-andKey]').click(function(){
-		if ($(this).parent().hasClass('is-dirty')) $('#search-bar').submit();
-	});
+	$('[for=header-andKey]').click(e => {if ($(e.currentTarget).parent().hasClass('is-dirty')) $('#search-bar').submit();});
 	//検索バー連動
 	$('#search-bar').val($('#andKey').val());
-	$('.andKey').change(function(){
-		$('.andKey').val($(this).val());
-	});
+	$('.andKey').change(e => $('.andKey').val($(e.currentTarget).val()));
 	//検索プリセット
-	$('#save_preset').click(function(){
+	$('#save_preset').click(() => {
 		if ($('#lock').prop('checked')) $('#search').append('<input type="hidden" name="lock" value="1">');
-		$('#search').append('<input type="hidden" name="save" value="1">').attr('action', 'search.html?preset='+encodeURIComponent($('#preset_name').val())).submit();
+		$('#search').append('<input type="hidden" name="save" value="1">').attr('action', `search.html?preset=${encodeURIComponent($('#preset_name').val())}`).submit();
 	});
 
 
 
 	//録画設定
 	//プリセット読み込み
-	$('[name=presetID]').change(function(){
-		function action(list, key){
-			var messege;
-			var preset = list[key];
-			if (preset){
-				var name = setRecSettting(preset);
-				messege = '"' + name + '" を読み込みました';
-			}
-			if (!messege) messege = 'プリセットの読み込に失敗しました';
-			Snackbar.MaterialSnackbar.showSnackbar({message: messege});
+	const setPreset = (d, id) => {
+		let messege = 'プリセットの読み込に失敗しました';
+		d = d[0].get(id);
+		if (d){
+			const name = setRecSettting(d).name ?? $('[name=presetID] option:selected').text();
+			messege = `"${name}" を読み込みました`;
 		}
-
-
- 		var key;
-		if ($(this).val() != 65535){
-			key = $(this).val();
-			if (PresetList){
-				action(PresetList, key);
-			}else{
-				$.get(root + 'api/EnumRecPreset', function(result, textStatus, xhr){
-					PresetList = {};
-					$(xhr.responseXML).find('recpresetinfo').each(function(){
-						PresetList[$(this).find('id').text()]=$(this);
-					});
-					action(PresetList, key);
-				});
-			}
-		}else if ($(this).data('reseveid')){
-			var data=$('#set').data();
-			if (data.eid==65535){
-				key = $(this).data('reseveid');
-			}else{
-				key = data.onid+'-'+data.tsid+'-'+data.sid+'-'+data.eid;
-			}
-			if (ReserveAutoaddList){
-				action(ReserveAutoaddList, key);
-			}else{
-				$.get(root + 'api/' + 'EnumReserveInfo', function(result, textStatus, xhr){
-					ReserveAutoaddList={};
-					$(xhr.responseXML).find('reserveinfo').each(function(){
-						var key;
-						if ($(this).find('eventID').text()==65535){
-							key=$(this).find('ID').text();
-						}else{
-							key=$(this).find('ONID').text()+'-'+$(this).find('TSID').text()+'-'+$(this).find('SID').text()+'-'+$(this).find('eventID').text();
-						}
-						ReserveAutoaddList[key]=$(this);
-					});
-					action(ReserveAutoaddList, key);
-				});
-			}
-		}else{
-			key = $(this).data('autoaddid');
-			if (ReserveAutoaddList){
-				action(ReserveAutoaddList, key);
-			}else{
-				$.get(root + 'api/' + 'EnumAutoAdd', function(result, textStatus, xhr){
-					ReserveAutoaddList={};
-					$(xhr.responseXML).find('autoaddinfo').each(function(){
-						ReserveAutoaddList[$(this).find('ID').text()]=$(this);
-					});
-					action(ReserveAutoaddList, key);
-				});
-			}
-		}
+		Snackbar(messege);
+	}
+	$('[name=presetID]').change(e => {
+		const $e = $(e.currentTarget);
+		if ($e.val() != 65535) getList.recpreset(d => setPreset(d, parseInt($e.val())));
+		else if ($e.data('key')) setPreset(Info[$e.data('key')], $e.data('id'));
+		else if ($e.data('reserve')) getList.reserve(d => setPreset(d, $e.data('reserve')));
+		else if ($e.data('autoadd')) getList.autoaddepg(d => setPreset(d, $e.data('autoadd')));
+		else if ($e.data('manuadd')) getList.autoaddmanual(d => setPreset(d, $e.data('manuadd')));
 	});
 	//録画マージン
-	$('#usedef').change(function(){
-		if ($(this).prop('checked')){
-			$('.recmargin').addClass('is-disabled').find('.mdl-textfield').addClass('is-disabled').find('input').prop('disabled', true);
-		}else{
-			$('.recmargin').removeClass('is-disabled').find('.mdl-textfield').removeClass('is-disabled').find('input').prop('disabled', false);
-		}
-	});
+	$('#usedef').change(e => $('.recmargin').mdl_prop('disabled', $(e.currentTarget).prop('checked')));
 	//指定サービス対象データ
-	$('#smode').change(function(){
-		if ($(this).prop('checked')){
-			$('.smode').find('.mdl-checkbox').addClass('is-disabled').find('input').prop('checked', false).prop('disabled', true);
-		}else{
-			$('.smode').find('.mdl-checkbox').removeClass('is-disabled').find('input').prop('disabled', false);
-		}
-	});
-	$('[name=suspendMode]').change(function(){
-		if ($(this).val()==0){
-			$('.reboot').addClass('is-disabled').find('input').prop('checked', false).prop('disabled', true);
-		}else{
-			$('.reboot').removeClass('is-disabled').find('input').prop('disabled', false);
-		}
-	});
+	$('#smode').change(e => $('.smode').mdl_prop('disabled', $(e.currentTarget).prop('checked')));
+	$('[name=suspendMode]').change(e => $('#reboot').mdl_prop('disabled', $(e.currentTarget).val() == 0));
 	//部分受信サービス
-	$('#partial').change(function(){
-		if ($(this).prop('checked')){
-			$('#partialpreset').show();
-		}else{
-			$('#partialpreset').hide();
-		}
-	});
+	$('#partial').change(e => $('#partialpreset').toggle($(e.currentTarget).prop('checked')));
 
 	//予約トグルスイッチ
-	$('.flag input').change(function(){
-		reserve( $(this) );
+	$('.flag input').change(e => {
+		$(e.currentTarget).parents('td').data('toggle', $(e.currentTarget).prop('checked') ? 1 : 0);
+		addReserve($(e.currentTarget));
 	});
-	//録画無効マーク
-	$('.disabled span').click(function(){
-		if ($(this).hasClass('recmark')) reserve( $(this) );
+
+	//検索ページ向け
+	//予約追加ボタン
+	$('.add').click(e => addReserve($(e.currentTarget)));
+	$('#archive').change(e => {
+		const checked = $(e.currentTarget).prop('checked');
+		$('#startDate,#endDate').attr('required', checked);
+		$('#startDate').parent().toggleClass('is-invalid', checked && $('#startDate').val()=='');
+		$('#endDate').parent().toggleClass('is-invalid', checked && $('#endDate').val()=='');
 	});
-	//検索ページ追加ボタン
-	$('.add').click(function(){
-		reserve( $(this) );
+	$('.submitEX').click(e => {
+		e.preventDefault();
+		e = e.currentTarget;
+		$(e.form).find('.ctok').prop('disabled', true).filter($(e).data('ctok')).prop('disabled', false);
+		$(e.form).attr('action', e.formAction).submit();
 	});
 
 	//通信エラー
-	$(document).ajaxError(function(e, xhr, textStatus, errorThrown){
+	$(document).ajaxError((e, xhr, textStatus) => {
 		showSpinner();
-		var message = 'Error : 通信エラー';
-		if (xhr.status!=0){
-			message = xhr.status + 'Error : ' + xhr.statusText;
-		}else if (textStatus.url.match('api/set')){
-			message = 'Error : トークン認証失敗';
-		};
-		Snackbar.MaterialSnackbar.showSnackbar({message: message});
-	});
-
-	//予約一覧マーク等処理
-	$('tr.reserve').each(function(){
-		var obj = $(this);
-		setTimeout(function(){
-			obj.addClass('start').children('.flag').children('span').empty().addClass('recmark');
-			setTimeout(function (){obj.remove();}, obj.data('endtime')-Date.now());
-		}, obj.data('starttime')-Date.now())
-	});
-	//検索ページ向け
-	$('tr.search').each(function(){
-		var obj = $(this);
-		if (obj.data('starttime')) setTimeout(function(){obj.addClass('start').children('.flag').children('span').addClass('recmark').empty();}, obj.data('starttime')-Date.now())
-		setTimeout(function (){obj.children('.flag').data('id', false).children('span').remove();}, obj.data('endtime')-Date.now());
+		Snackbar(xhr.status!=0 ? `${xhr.status}Error : ${xhr.statusText}` : `Error : ${textStatus.url.match('api/set') ? 'トークン認証失敗' : '通信エラー'}`);
 	});
 
 	//サブミット
-	$('.submit').click(function(){
-		if ($('dialog').attr('open')) {
-			var dialog = document.querySelector('dialog'+$(this).data('dialog'));
-			if (!dialog.showModal) dialogPolyfill.registerDialog(dialog);
-			dialog.close();
-		}
+	$('.submit').click(e => {
+		if ($('dialog').attr('open')) dialog(e).close();
+
 		showSpinner(true);
-		var form = $( $(this).data('form') );
-		var data = form.data();
+		const $form = $( $(e.currentTarget).data('form') );
+		const d = $form.data();
 
 		$.ajax({
-			url: form.attr('action'),
-			type: form.attr('method'),
-			data: form.serialize(),
+			url: $form.attr('action'),
+			type: $form.attr('method'),
+			data: $form.serialize(),
 
-			success: function(result, textStatus, xhr){
-				var xml = $(xhr.responseXML);
-				if (xml.find('success').length > 0){
-					Snackbar.MaterialSnackbar.showSnackbar({message: xml.find('success').text(), timeout: 1500});
-					if (data.redirect){
-						setTimeout('location.href="'+data.redirect+'";', 1500);
-					}else if (data.submit){
-						setTimeout('$("'+ data.submit +'").submit();', 1500);
-					}else if (data.reload || form.hasClass('reload')){
-						Snackbar.MaterialSnackbar.showSnackbar({message: 'リロードします', timeout: 1000});
-						setTimeout('location.reload()', 2500);
-					}else if (data.action) {
-						if (data.action == 'add' || data.action == 'reserve'){
-							var id = xml.find('ID').text();
+			success: (result, textStatus, xhr) => {
+				const xml = $(xhr.responseXML);
+				if (xml.find('success').length){
+					Snackbar({message: xml.find('success').text(), timeout: 1500});
+					if (d.redirect) setTimeout(() => location.href=d.redirect, 1500);
+					else if (d.submit) setTimeout(() => $(d.submit).submit(), 1500);
+					else if (d.reload || $form.hasClass('reload')){
+						Snackbar({message: 'リロードします', timeout: 1000});
+						setTimeout(() => location.reload(), 2500);
+					}else if (d.action){
+						if (d.action == 'epg'){
+							const r = toObj.RecSet(xml.find('reserveinfo'));
 
-							$('#set').attr('action', root + 'api/setReserve?id='+id);
-							$('#del').attr('action', root + 'api/setReserve?id='+id);
-							$('#progres').attr('action', root + 'api/setReserve?id='+id);
-							$('#action').attr('name', 'change');
-							$('#reserved, #delreseved, #toprogres').show();
-							$('[name=presetID]').data('reseveid', id).val(65535);
-							$('#reserve').text('変更');
+							setReserve(r, () => {
+								addRecMark(r, $('.open .addreserve'), $('.open .content-wrap'));
+								progReserve(r);
 
-							addMark(xml, $('.open .addreserve'), $('.open .content-wrap'));
-
-							var start = new Date(xml.find('startDate').text().replace(/\//g,'-')+'T'+xml.find('startTime').text()+'+09:00');
-							var end = new Date(start.getTime() + Number(xml.find('duration').text())*1000);
-							progReserve(start, end, xml.find('eventID').text());
-
-							if (data.action == 'reserve'){
-								var recmode = xml.find('recMode').text();
-								var overlapmode = xml.find('overlapMode').text();
-
-								var mode = '';
-								if (recmode == 5){//無効
-									mode = 'disabled';
-								}else if (overlapmode == 1){//チューナー不足
-									mode = 'partially';
-								}else if (overlapmode == 2){//一部録画
-									mode = 'shortage';
-								}
-
-								var obj = $('.open input');
-								var parents = $('.open');
-								if (parents.hasClass('search')){//検索ページ向け
-									obj = $('.open .search');
-									parents = $('.open .flag').data('id', id);
-									//スイッチ追加
-									if (start < Date.now()){
-										obj.removeClass().addClass('search recmark').empty();
-										if (recmode != 5) obj.unbind('click');
-									}else if (!obj.hasClass('addreserve')){
-										var reserveid = 'reserve' + id;
-										var label = $('<label>', {
-											class: 'mdl-switch mdl-js-switch',
-											for: reserveid,
-											html: $('<input>', {
-												id: reserveid,
-												class: 'search addreserve mdl-switch__input',
-												type: 'checkbox',
-												checked: recmode != 5,
-												change: function(){reserve($(this));}
-											})
-										});
-										componentHandler.upgradeElement(label.get(0));
-
-										var mark = $('<span>').html(label);
-										parents.data('toggle', 1).data('oneclick', 0).html(mark);
-										setTimeout(function(){
-											parents.parent('tr').addClass('start');
-											mark.addClass('recmark').empty();
-										}, start-Date.now());
-									}
-								}
-								parents.removeClass('disabled partially shortage').addClass(mode);
-								if (recmode != 5){
-									obj.prop('checked', true).parent().addClass('is-checked');
-								}else{
-									obj.prop('checked', false).parent().removeClass('is-checked');
-								}
-							}
-						}else if (data.action == 'autoadd'){
-							$('.open .keyword').text($('#andKey').val());
-							$('.open .notkeyword').text($('#notKey').val());
-							var count = $('#service option:selected').length-1;
-							$('.open .servicelist').html($('#service option:selected:first').text().replace(/^\(.*\)\s/g, '')+(count>0 ? '<small>.他'+count+'ch' : ''));
-							count = $('#contentList option:selected').length;
-							$('.open .category').html( (count==0 ? '全ジャンル' : $('#contentList option:selected:first').text()+(count>1 ? '<small>.他'+(count-1)+'ch' : '')) );
-							$('.open .mode').text($('[name=recMode] option:selected').text());
-						}else if (data.action == 'del'){
-							setDefault(true);
-							if ($('.open').hasClass('reserve')){
-								$('.open.reserve').remove();
+								if ($('.open').hasClass('epginfo')) fixRecToggleSW(r);
+							});
+						}else if (d.action == 'list'){
+							createHtml.create();
+						}else if (d.action == 'del'){
+							if (createHtml.enabled){
 								$('#sidePanel, .close_info.mdl-layout__obfuscator').removeClass('is-visible');
+								createHtml.create();
+							}else{
+								setDefault(true);
+								if ($('.open').hasClass('reserve')){
+									$('#sidePanel, .close_info.mdl-layout__obfuscator').removeClass('is-visible');
+									$('.open').remove();
+								}
 							}
-							setTimeout('location.reload()', 2500); // リロードする
-						}else if (data.action == 'close'){
-							$('#actions').remove();
-							//window.close();
 						}
 					}
 				}else{
@@ -1642,17 +1800,12 @@ $(function(){
 		});
 	});
 
-	$('.delPreset').click(function(){
-		delPreset(this);
-	});
-	$('.addPreset').click(function(){
-		$(this).before(recFolderInfo($(this).prevAll().length+1, {recFolder: '', writePlugIn: 'Write_Default.dll', recNamePlugIn: ''}, $(this).hasClass('partial')));
-
+	$('.delPreset').click(e => recFolder.del($(e.currentTarget)));
+	$('.addPreset').click(e => {
+		$(e.currentTarget).before(recFolder.create({recFolder: '', writePlugIn: $('#Write option').first().val(), recNamePlugIn: ''}, $(e.currentTarget).prevAll().length+1, $(e.currentTarget).hasClass('partial')));
 		componentHandler.upgradeDom();
 	});
 
 	//入力チェック
-	$('form').on('input', function () {
-		$('[data-form="#'+$(this).attr('id')+'"]').attr('disabled', !this.checkValidity());
-	});
+	$('form').on('input', e => $(`[data-form="#${$(e.currentTarget).attr('id')}"]`).attr('disabled', !$(e.currentTarget).get(0).checkValidity()));
 });

@@ -17,9 +17,42 @@ EDCB Material WebUI
 * デフォルトの環境設定をカスタマイズした
 * デフォルトのトランスコード設定をカスタマイズした
 * ソースコードの文字コードを UTF-8 (BOM なし) に統一した
+* 2026年1月追記: 末尾の空白を削除した
+* 2026年1月追記: upstream から取り込んだ最新の変更のうち、明らかな実装ミスやバグを修正した
 
 [DTV-Builds](https://github.com/tsukumijima/DTV-Builds) で配布している、EDCB のビルド済みアーカイブのファイル構成で利用することを想定しています。  
 それ以外の環境に導入する際は、適宜必要な実行ファイルを EDCB\Tools 以下に適切に配置してください。
+
+### Tools フォルダに配置するツールについて
+
+ツールの配置場所は `Tools/` 直下でも `Tools/サブフォルダ/` でも動作します（`XCODE_OPTIONS.lua` の xcoder 設定で複数候補をフォールバック指定しているため）。
+
+#### 必須ツール
+
+| ツール | 用途 | 必要条件 | 入手先 |
+|--------|------|----------|--------|
+| tsreadex.exe | TS ストリーム読み込み | リモート視聴・ファイル再生時（TS-Live! 含む） | [tsreadex](https://github.com/xtne6f/tsreadex) |
+| ffmpeg.exe | トランスコード・サムネイル生成 | トランスコード再生時（TS-Live! 以外） | [FFmpeg](https://ffmpeg.org/) |
+
+#### 機能別オプショナルツール
+
+| ツール | 用途 | 必要条件 | 入手先 |
+|--------|------|----------|--------|
+| ffprobe.exe | メタ情報取得 | シーク精度向上（なくても動作） | ffmpeg に同梱 |
+| tsmemseg.exe | HLS セグメント化 | `ALLOW_HLS=1` 時 | [tsmemseg](https://github.com/xtne6f/tsmemseg) |
+| psisiarc.exe | データ放送表示 | `ALLOW_ARIB_DATA=1` 時 | [psisiarc](https://github.com/xtne6f/psisiarc) |
+| psisimux.exe | 字幕ストリーム抽出 | ライブラリ字幕表示時 | [psisimux](https://github.com/xtne6f/psisimux) |
+| asyncbuf.exe | 出力バッファリング | `XCODE_BUF > 0` 時 | EDCB に同梱 |
+| edcbnosuspend.exe | PC スリープ防止 | スリープ防止機能使用時（Windows 専用） | EDCB に同梱 |
+| tspgtxt.exe | 字幕テキスト抽出 | ライブラリ字幕表示時 | EDCB に同梱 |
+
+#### ハードウェアエンコーダー
+
+| ツール | 用途 | 入手先 |
+|--------|------|--------|
+| QSVEncC64.exe | Intel QSV エンコード | [QSVEnc](https://github.com/rigaya/QSVEnc) |
+| NVEncC64.exe | NVIDIA GPU エンコード | [NVEnc](https://github.com/rigaya/NVEnc) |
+| VCEEncC64.exe | AMD VCE エンコード | [VCEEnc](https://github.com/rigaya/VCEEnc) |
 
 -------------------
 
@@ -45,33 +78,51 @@ EDCB Material WebUI
 ※ ここでうまく行かない場合はEDCBの設定の問題だと思われます
 1. ファイルを適切に設置 (下記の配置例を参照)  
    `HttpPublic`と`Setting`のフォルダをEDCBフォルダに入れる  
-   ※ 配置例 (EMWUI、legacyは任意にリネーム等化)
+   ※ 配置例 (EMWUI、legacyは任意にリネーム等可)
 
        EDCB/
         ├─ HttpPublic/
         │   ├─ api/
         │   ├─ EMWUI/
+        │   │   ├─js/
+        │   │   :  ├─ts-live.js
+        │   │      └─ts-live.wasm
         │   ├─ legacy/
         │   ├─ img/
         │   │   └─logo/
         │   ├─ video/
-        │   └─ index.html
+        │   ├─ index.html
+        │   :
+        │
         ├─ Tools/
-        │   ├─ ffmpeg.exe
-        │   ├─ ffprobe.exe
-        │   ├─ tsreadex.exe
+        │   ├─ ffmpeg/
+        │   │   ├─ ffmpeg.exe
+        │   │   ├─ ffprobe.exe
+        │   │   :
+        │   ├─ NVEncC/
+        │   │   :
+        │   ├─ QSVEncC/
+        │   │   :
         │   ├─ asyncbuf.exe
-        │   ├─ tsmemseg.exe
+        │   ├─ edcbnosuspend.exe
         │   ├─ psisiarc.exe
-        │   └─ edcbnosuspend.exe
+        │   ├─ psisimux.exe
+        │   ├─ tsmemseg.exe
+        │   ├─ tsreadex.exe
+        │   ├─ tspgtxt.exe
+        │   :
+        │
         ├─ Setting/
         │   ├─ XCODE_OPTIONS.lua
-        │   └─ HttpPublic.ini
+        │   ├─ HttpPublic.ini
+        │   :
+        │
         ├─ EpgDataCap_Bon.exe
         ├─ EpgTimerSrv.exe
         ├─ EpgTimer.exe
         ├─ lua52.dll
-        └─ SendTSTCP.dll
+        ├─ SendTSTCP.dll
+        :
 
 1. リモート視聴する場合EpgDataCap_Bonなどのネットワーク設定でTCP送信先にSrvPipeを追加
 1. http://localhost:5510/EMWUI/ にアクセス出来たら準備完了、設定へ  
@@ -102,22 +153,23 @@ PWA（プログレッシブウェブアプリ）に対応しアプリとして�
 # 視聴機能
 Legacy WebUIの配信機能を移植し、以下の事が可能となりました  
 * HLSでの配信
+* TS-Live!モジュールでMPEG2を直接再生
 * web-bmlによるデータ放送の表示
 * aribb24.jsによる字幕表示
-* 実況の表示 (録画用アプリにTvTestの使用時のみ)
+* 実況の表示
 
-過去の機能と仕様などが変わり互換性はありませんので再度設定をしてください  
-[EDCB Legacy WebUIについて](http://localhost:5510/legacy/about.html)にも目を通してください  
+[EDCB Legacy WebUIについて](http://localhost:5510/legacy/about.html)にも目を通してください
 
 ### 注意
 * トランスコードオプションは`XCODE_OPTIONS.lua`を編集してください
-* リモコン、コメントボタンを長押しすると各データの常時取得が有効になります
-* **データ放送がリセットできない**ため、一度データ放送を読み込みチャンネルを変更すると、リモコンボタンは無効化されます  
-上記の理由から常時取得有効中でも、リモコンボタンを一度押すまでデータ放送は読み込まれません
-* データ放送のNVRAM設定はLegacy WebUIと共通です、今のところ Legacy WebUI の[NVRAM設定](http://localhost:5510/legacy/nvram.html)でできます
-* Legacy WebUIで可能な`.pscファイル`による表示は現在非対応としています（要望があったら対応するかもしれません）  
-* プレイヤーの速度設定はブラウザ側の機能を使用しています  
-倍速読み込みはトランスコードオプションの`filterFast`を有効にします
+* コメントボタンを長押しすると常時取得が有効になります
+* ~~**データ放送がリセットできない**ため、一度データ放送を読み込みチャンネルを変更すると、リモコンボタンは無効化されます  
+上記の理由から常時取得有効中でも、リモコンボタンを一度押すまでデータ放送は読み込まれません~~  
+力技で対応しました
+* データ放送のNVRAM設定はLegacy WebUIと共通です、今のところ Legacy WebUI の[NVRAM設定](http://localhost:5510/legacy/nvram.html)でできます  
+初期値は`HttpPublic.ini`から指定できるようになりました
+* 実況ログ表示機能は動作未確認、動いてたらラッキー  
+* 倍速読み込みはトランスコードオプションの`filterFast`を有効にします
 
 
 ## リモート視聴
@@ -200,8 +252,7 @@ URLに`?webPanel=`を追加すると無駄をそぎ落としたデザインに�
 ### Framework & JavaScriptライブラリ
 
 * [Material Design Lite](http://www.getmdl.io)
-* [Material icons](https://design.google.com/icons/)
-* [dialog-polyfill](https://github.com/GoogleChrome/dialog-polyfill)
+* [Material Symbols](https://github.com/google/material-design-icons)
 * [jQuery](https://jquery.com)
 * [jQuery UI](https://jqueryui.com)
 * [jQuery UI Touch Punch](http://touchpunch.furf.com)
@@ -209,6 +260,7 @@ URLに`?webPanel=`を追加すると無駄をそぎ落としたデザインに�
 * [jquery.hammer.js](https://github.com/hammerjs/jquery.hammer.js)
 * [hls.js](https://github.com/video-dev/hls.js)
 * [web_bml_play_ts.js](https://github.com/xtne6f/web-bml)
+* [TS-Live!](https://github.com/xtne6f/ts-live)
 * [aribb24.js](https://github.com/xtne6f/aribb24.js)
 * [danmaku.js](https://github.com/DIYgod/DPlayer)
 

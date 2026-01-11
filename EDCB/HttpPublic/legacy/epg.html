@@ -5,9 +5,7 @@ ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
 ct:Append(DOCTYPE_HTML4_STRICT..[=[
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="viewport" content="initial-scale=1">
-<link rel="stylesheet" type="text/css" href="default.css">
+]=]..DefaultHeadContents()..[=[
 <title>番組表 - EDCB</title>
 </head>
 <body>
@@ -120,11 +118,15 @@ SortServiceListInplace(st)
 
 pageNav='<div class="page-nav">\n'
 for i,v in ipairs({'地デジ','BS','CS','CS3','その他'}) do
-  pageNav=pageNav..'  '..(tab==i-1 and v or '<a href="epg.html?tab='..(i-1)..'&amp;cust='..cust..'&amp;date='..date..'">'..v..'</a>')..'\n'
+  pageNav=pageNav..'  '
+    ..(tab==i-1 and '<span class="epg-nav-sel">'..v..'</span>\n' or
+         '<a href="epg.html?tab='..(i-1)..'&amp;cust='..cust..'&amp;date='..date..'">'..v..'</a>\n')
 end
 pageNav=pageNav..'  ||\n'
 for i,v in ipairs({'すべて','カスタム'}) do
-  pageNav=pageNav..'  '..(cust==i-1 and v or '<a href="epg.html?tab='..tab..'&amp;cust='..(i-1)..'&amp;date='..date..'">'..v..'</a>')..'\n'
+  pageNav=pageNav..'  '
+    ..(cust==i-1 and '<span class="epg-nav-sel">'..v..'</span>\n' or
+         '<a href="epg.html?tab='..tab..'&amp;cust='..(i-1)..'&amp;date='..date..'">'..v..'</a>\n')
 end
 pageNav=pageNav..'  ||\n'
   ..'  <a href="#noon">昼</a>\n'
@@ -136,10 +138,11 @@ pageNav2=''
 if minTime then
   for i=math.max(baseDate+date-7,math.floor((minTime-4*3600)/(24*3600))),math.min(baseDate+date+7,math.floor((maxTime-4*3600)/(24*3600))) do
     d=os.date('!*t', i*24*3600)
-    pageNav2=pageNav2..'  '..(i-baseDate~=date and '<a href="epg.html?tab='..tab..'&amp;cust='..cust..'&amp;date='..(i-baseDate)..'">' or '')
-      ..(i==baseDate and '<span style="text-decoration:underline">' or '')
+    pageNav2=pageNav2..'  '
+      ..(i-baseDate==date and '<span class="epg-nav-sel'..(i==baseDate and ' epg-nav-now">' or '">') or
+           '<a href="epg.html?tab='..tab..'&amp;cust='..cust..'&amp;date='..(i-baseDate)..'"'..(i==baseDate and ' class="epg-nav-now">' or '>'))
       ..(pageNav2=='' and d.month..'/' or '')..('%02d'):format(d.day)..({'日','月','火','水','木','金','土'})[d.wday]
-      ..(i==baseDate and '</span>' or '')..(i-baseDate~=date and '</a>\n' or '\n')
+      ..(i-baseDate==date and '</span>\n' or '</a>\n')
   end
   pageNav2='<div class="page-nav">\n'..pageNav2..'</div>\n'
 end

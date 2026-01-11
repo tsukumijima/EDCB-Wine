@@ -91,12 +91,6 @@
 
 
 
-ビルド(VisualStudio2010)
-----------------------------------------
-※VisualStudio2010の延長サポートが終了したため、内容を削除した。必要なら2020年以前のコミットを参照
-
-
-
 ビルド(Linux)
 ----------------------------------------
 ※動作確認環境はDebian(bookworm)
@@ -106,6 +100,7 @@
    sudo apt install make gcc g++
    sudo apt install liblua5.2-dev lua-zlib
    sudo apt install openssl  # 必須でない。WebUIでSSL/TLSを利用する場合
+   sudo apt install curl  # 必須でない。後述で `make extra` する場合
    ```
    gccのバージョンは11以上を想定。RedHat系やあえて自ビルドする場合は後述「Luaモジュールのビルド」もやっておく
 

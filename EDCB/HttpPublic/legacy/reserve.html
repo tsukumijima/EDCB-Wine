@@ -1,5 +1,8 @@
 -- vim:set ft=lua:
 dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+if USE_LIVEJK then
+  dofile(mg.script_name:gsub('[^\\/]*$','')..'jkconst.lua')
+end
 
 vtag=GetVarInt(mg.request_info.query_string,'vtag') or -1
 
@@ -7,9 +10,7 @@ ct=CreateContentBuilder(GZIP_THRESHOLD_BYTE)
 ct:Append((vtag<=0 and DOCTYPE_HTML4_STRICT or '<!DOCTYPE html>\n')..[=[
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="viewport" content="initial-scale=1">
-<link rel="stylesheet" type="text/css" href="default.css">
+]=]..DefaultHeadContents()..[=[
 <title>予約一覧 - EDCB</title>
 </head>
 <body>
@@ -117,7 +118,7 @@ if #a>0 then
     ct:Append('<option value="'..v..'"'..(n==v and ' selected' or '')..'>-pipe'..v)
   end
   ct:Append('</select>\n'
-    ..TranscodeSettingTemplate(xq)
+    ..TranscodeSettingTemplate(xq,vtag==0)
     ..(vtag==0 and '<input type="hidden" name="ctok" value="'..CsrfToken('view.lua')..'">\n'
          or '<input type="hidden" name="vtag" value="1">\n')
     ..'</div></form>\n')
@@ -126,12 +127,11 @@ if #a>0 then
       if n==v then
         src='view.lua?n='..v..ConstructTranscodeQueries(xq)..'&amp;ctok='..CsrfToken('view.lua')
         ct:Append(VideoWrapperBegin()
-          ..(xq.tslive and '<canvas id="video"></canvas>' or
-               '<video id="video" autoplay playsinline controls'..(ALLOW_HLS and '' or ' src="'..src..'"')..'>view</video>')
-          ..VideoWrapperEnd()..'\n'
-          ..'<div id="vidsrc" style="display:none">'..src..'</div>\n'..TranscodeScriptTemplate(true,xq.caption,xq.jikkyo,{n=v}))
+          ..(xq.tslive and '<canvas id="video" data-src="'..src..'"></canvas>' or
+               '<video id="video" autoplay playsinline controls '..(ALLOW_HLS and 'data-' or '')..'src="'..src..'">view</video>')
+          ..VideoWrapperEnd(USE_LIVEJK and GetChatStreamNameList())..'\n'..TranscodeScriptTemplate(true,xq.caption,xq.jikkyo,{n=v}))
         if xq.tslive then
-          ct:Append(TsliveScriptTemplate())
+          ct:Append(TsliveScriptTemplate(xq.autoCinema))
         elseif ALLOW_HLS then
           ct:Append(HlsScriptTemplate('view.lua'))
         end

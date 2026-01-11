@@ -1,30 +1,14 @@
 -- vim:set ft=lua:
-dofile(mg.document_root..'\\api\\util.lua')
+dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
 
 post=AssertPost()
 if post then
   dataID=GetVarInt(mg.request_info.query_string,'id') or 0
   aa={dataID=dataID}
   if mg.get_var(post,'addchg') then
-    presetID=GetVarInt(post,'presetID',0,65534)
-    if presetID then
-      for i,v in ipairs(edcb.EnumRecPresetInfo()) do
-        if v.id==presetID then
-          aa.recSetting=v.recSetting
-          break
-        end
-      end
-    elseif dataID~=0 then
-      for i,v in ipairs(edcb.EnumAutoAdd()) do
-        if v.dataID==dataID then
-          aa.recSetting=v.recSetting
-          break
-        end
-      end
-    end
-    aa.recSetting=getRecSetting(aa.recSetting, post)
+    aa.recSetting=GetRecSetting(post)
     if aa.recSetting then
-      aa.searchInfo=getSearchKey(post)
+      aa.searchInfo=GetSearchKey(post)
       done=edcb.AddOrChgAutoAdd(aa)
       if done then
         messege='<success>EPG自動予約を'..(aa.dataID==0 and '追加' or '変更')..'しました</success>'

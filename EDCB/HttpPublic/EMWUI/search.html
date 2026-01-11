@@ -16,7 +16,7 @@ end
 preset=mg.get_var(mg.request_info.query_string, 'preset')
 
 presetList={}
-for v in edcb.GetPrivateProfile('search','list','',ini):gmatch('[^,]+') do
+for v in edcb.GetPrivateProfile('search','list','',INI):gmatch('[^,]+') do
   presetList[#presetList+1]=v
 end
 
@@ -33,75 +33,75 @@ if preset then
   if GetVarInt(post, 'save')==1 then
     if presetIndex then
       --上書き
-      edcb.WritePrivateProfile(_preset, nil, '', ini)
+      edcb.WritePrivateProfile(_preset, nil, '', INI)
     else
       --追加
       presetList[#presetList+1]=preset
-      edcb.WritePrivateProfile('search', 'list', table.concat(presetList, ',')..',', ini)
+      edcb.WritePrivateProfile('search', 'list', table.concat(presetList, ',')..',', INI)
     end
 
-    edcb.WritePrivateProfile(_preset, 'andKey', (GetVarInt(post,'caseFlag') and 'C!{999}' or '')..mg.get_var(post,'andKey'),ini)
-    edcb.WritePrivateProfile(_preset, 'notKey', mg.get_var(post,'notKey'),ini)
-    edcb.WritePrivateProfile(_preset, 'regExpFlag', GetVarInt(post,'regExpFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'titleOnlyFlag', GetVarInt(post,'titleOnlyFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'aimaiFlag', GetVarInt(post,'aimaiFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'notContetFlag', GetVarInt(post,'notContetFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'notDateFlag', GetVarInt(post,'notDateFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'freeCAFlag', GetVarInt(post,'freeCAFlag'),ini)
-    edcb.WritePrivateProfile(_preset, 'chkRecEnd', GetVarInt(post,'chkRecEnd'),ini)
-    edcb.WritePrivateProfile(_preset, 'chkRecDay', GetVarInt(post,'chkRecDay'),ini)
-    edcb.WritePrivateProfile(_preset, 'chkRecNoService', GetVarInt(post,'chkRecNoService'),ini)
-    edcb.WritePrivateProfile(_preset, 'chkDurationMin', GetVarInt(post,'chkDurationMin'),ini)
-    edcb.WritePrivateProfile(_preset, 'chkDurationMax', GetVarInt(post,'chkDurationMax'),ini)
-    edcb.WritePrivateProfile(_preset, 'days', GetVarInt(post,'days'),ini)
-    edcb.WritePrivateProfile(_preset, 'dateList', mg.get_var(post,'dateList'),ini)
-    edcb.WritePrivateProfile(_preset, 'lock', GetVarInt(post,'lock'),ini)
+    edcb.WritePrivateProfile(_preset, 'andKey', (GetVarInt(post,'caseFlag') and 'C!{999}' or '')..(mg.get_var(post,'andKey') or ''),INI)
+    edcb.WritePrivateProfile(_preset, 'notKey', mg.get_var(post,'notKey') or '',INI)
+    edcb.WritePrivateProfile(_preset, 'regExpFlag', GetVarInt(post,'regExpFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'titleOnlyFlag', GetVarInt(post,'titleOnlyFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'aimaiFlag', GetVarInt(post,'aimaiFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'notContetFlag', GetVarInt(post,'notContetFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'notDateFlag', GetVarInt(post,'notDateFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'freeCAFlag', GetVarInt(post,'freeCAFlag'),INI)
+    edcb.WritePrivateProfile(_preset, 'chkRecEnd', GetVarInt(post,'chkRecEnd'),INI)
+    edcb.WritePrivateProfile(_preset, 'chkRecDay', GetVarInt(post,'chkRecDay'),INI)
+    edcb.WritePrivateProfile(_preset, 'chkRecNoService', GetVarInt(post,'chkRecNoService'),INI)
+    edcb.WritePrivateProfile(_preset, 'chkDurationMin', GetVarInt(post,'chkDurationMin'),INI)
+    edcb.WritePrivateProfile(_preset, 'chkDurationMax', GetVarInt(post,'chkDurationMax'),INI)
+    edcb.WritePrivateProfile(_preset, 'days', GetVarInt(post,'days'),INI)
+    edcb.WritePrivateProfile(_preset, 'dateList', mg.get_var(post,'dateList') or '',INI)
+    edcb.WritePrivateProfile(_preset, 'lock', GetVarInt(post,'lock'),INI)
     for i=0,10000 do
       v=mg.get_var(post, 'contentList', i)
       if not v then break end
-      edcb.WritePrivateProfile(_preset, 'contentList'..i, v,ini)
+      edcb.WritePrivateProfile(_preset, 'contentList'..i, v,INI)
     end
     for i=1,10000 do
       v=mg.get_var(post, 'serviceList', i)
       if not v then break end
-      edcb.WritePrivateProfile(_preset, 'serviceList'..i, v,ini)
+      edcb.WritePrivateProfile(_preset, 'serviceList'..i, v,INI)
     end
   elseif GetVarInt(post, 'del')==1 then
     if presetIndex then
       table.remove(presetList, presetIndex)
-      edcb.WritePrivateProfile(_preset, nil, '', ini)
-      edcb.WritePrivateProfile('search', 'list', #presetList~=0 and table.concat(presetList, ',')..',' or '', ini)
+      edcb.WritePrivateProfile(_preset, nil, '', INI)
+      edcb.WritePrivateProfile('search', 'list', #presetList~=0 and table.concat(presetList, ',')..',' or '', INI)
     end
   else
     key={
-      andKey=edcb.GetPrivateProfile(_preset,'andKey','',ini),
-      notKey=edcb.GetPrivateProfile(_preset,'notKey','',ini),
-      regExpFlag=tonumber(edcb.GetPrivateProfile(_preset,'regExpFlag',false,ini))~=0,
-      titleOnlyFlag=tonumber(edcb.GetPrivateProfile(_preset,'titleOnlyFlag',false,ini))~=0,
-      aimaiFlag=tonumber(edcb.GetPrivateProfile(_preset,'aimaiFlag',false,ini))~=0,
-      notContetFlag=tonumber(edcb.GetPrivateProfile(_preset,'notContetFlag',false,ini))~=0,
-      notDateFlag=tonumber(edcb.GetPrivateProfile(_preset,'notDateFlag',false,ini))~=0,
-      freeCAFlag=tonumber(edcb.GetPrivateProfile(_preset,'freeCAFlag',0,ini)),
-      chkRecEnd=tonumber(edcb.GetPrivateProfile(_preset,'chkRecEnd',false,ini))~=0,
-      chkRecDay=tonumber(edcb.GetPrivateProfile(_preset,'chkRecDay',0,ini)),
-      chkRecNoService=tonumber(edcb.GetPrivateProfile(_preset,'chkRecNoService',false,ini))~=0,
-      chkDurationMin=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMin',0,ini)),
-      chkDurationMax=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMax',0,ini)),
-      days=tonumber(edcb.GetPrivateProfile(_preset,'days',0,ini)),
+      andKey=edcb.GetPrivateProfile(_preset,'andKey','',INI),
+      notKey=edcb.GetPrivateProfile(_preset,'notKey','',INI),
+      regExpFlag=tonumber(edcb.GetPrivateProfile(_preset,'regExpFlag',false,INI))~=0,
+      titleOnlyFlag=tonumber(edcb.GetPrivateProfile(_preset,'titleOnlyFlag',false,INI))~=0,
+      aimaiFlag=tonumber(edcb.GetPrivateProfile(_preset,'aimaiFlag',false,INI))~=0,
+      notContetFlag=tonumber(edcb.GetPrivateProfile(_preset,'notContetFlag',false,INI))~=0,
+      notDateFlag=tonumber(edcb.GetPrivateProfile(_preset,'notDateFlag',false,INI))~=0,
+      freeCAFlag=tonumber(edcb.GetPrivateProfile(_preset,'freeCAFlag',0,INI)),
+      chkRecEnd=tonumber(edcb.GetPrivateProfile(_preset,'chkRecEnd',false,INI))~=0,
+      chkRecDay=tonumber(edcb.GetPrivateProfile(_preset,'chkRecDay',0,INI)),
+      chkRecNoService=tonumber(edcb.GetPrivateProfile(_preset,'chkRecNoService',false,INI))~=0,
+      chkDurationMin=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMin',0,INI)),
+      chkDurationMax=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMax',0,INI)),
+      days=tonumber(edcb.GetPrivateProfile(_preset,'days',0,INI)),
       contentList={},
       serviceList={},
       dateList={},
-      lock=tonumber(edcb.GetPrivateProfile(_preset,'lock',false,ini))~=0,
+      lock=tonumber(edcb.GetPrivateProfile(_preset,'lock',false,INI))~=0,
     }
 
     for i=0,1000 do
-      v=tonumber(edcb.GetPrivateProfile(_preset,'contentList'..i,0,ini))
+      v=tonumber(edcb.GetPrivateProfile(_preset,'contentList'..i,0,INI))
       if v==0 then break end
       table.insert(key.contentList, {content_nibble=v})
     end
 
     for i=0,1000 do
-      v=edcb.GetPrivateProfile(_preset,'serviceList'..i,0,ini)
+      v=edcb.GetPrivateProfile(_preset,'serviceList'..i,0,INI)
       if v==0 then break end
       m={string.match(v, '^(%d+)%-(%d+)%-(%d+)$')}
       if #m==3 then
@@ -109,7 +109,7 @@ if preset then
       end
     end
 
-    for v in string.gmatch(edcb.GetPrivateProfile(_preset,'dateList','',ini), '[^,]+') do
+    for v in string.gmatch(edcb.GetPrivateProfile(_preset,'dateList','',INI), '[^,]+') do
       m={string.match(v, '^(.-)%-(%d+):(%d+)%-(.-)%-(%d+):(%d+)$')}
       if #m==6 then
         dateInfo={
@@ -129,34 +129,67 @@ if preset then
 end
 
 if not key then
-  key=post and getSearchKey(post) or getSearchKeyKeyword(mg.request_info.query_string)
+  key=post and GetSearchKey(post) or GetSearchKeyKeyword(mg.request_info.query_string)
 end
 
 key.search=dataID==0 and not mg.get_var(post, 'id')
 
 edcb.htmlEscape=15
 
+range=nil
+archive=GetVarInt(post, 'archive')==1
+startDate=GetVarDate(post, 'startDate')
+if startDate then
+  startDate=startDate+GetVarTime(post, 'startTime')
+  endDate=GetVarDate(post, 'endDate')
+  if endDate then
+    range={startTime=os.date('!*t',startDate),durationSecond=endDate+GetVarTime(post, 'endTime')-startDate}
+  end
+end
+
+if range then
+  a=archive and edcb.SearchEpgArchive(key, range) or edcb.SearchEpg(key, range)
+else
+  a={}
+  if post or preset or dataID~=0 or mg.get_var(mg.request_info.query_string, 'andKey') then
+    for i,v in ipairs(edcb.SearchEpg(key)) do
+      if v.startTime then
+        startTime=TimeWithZone(v.startTime)
+        endTime=v.durationSecond and startTime+v.durationSecond or startTime
+        if os.time()+9*3600<=endTime then
+          table.insert(a, v)
+        end
+      end
+    end
+  end
+end
+table.sort(a, function(a,b)
+  if (a.startTime and os.time(a.startTime) or 0)==(b.startTime and os.time(b.startTime) or 0) then
+    return a.sid<b.sid
+  else
+    return (a.startTime and os.time(a.startTime) or 0)<(b.startTime and os.time(b.startTime) or 0)
+  end
+end)
+
 ct={
   title='検索',
-  js='<script>var ctok=\''..CsrfToken('setreserve')..'\';$(function(){saerchbar();});</script>\n',
-  progres=true,
-  macro=sidePanel
+  js='<script>const ctok=\''..CsrfToken('setreserve')..'\';$(function(){saerchbar();});</script>\n',
 }
 
 ct.subheader='<div id="subheader" class="serch-bar scroll mdl-color-text--grey-600"><div class="mdl-navigation">\n'
-  ..'<button class="mdl-button mdl-js-button mdl-button--icon" form="search"><i class="material-icons">search</i></button><div class="mdl-textfield mdl-js-textfield"><input class="andKey mdl-textfield__input" type="text" id="search-bar" form="search" value="'..EdcbHtmlEscape(parseAndKey(key.andKey).andKey)..'"><label class="mdl-textfield__label"></label></div>\n'
+  ..'<button class="mdl-button mdl-js-button mdl-button--icon" form="search"><i class="material-icons">search</i></button><div class="mdl-textfield mdl-js-textfield"><input class="andKey mdl-textfield__input" type="text" id="search-bar" form="search" value="'..EdcbHtmlEscape(ParseAndKey(key.andKey).andKey)..'"><label class="mdl-textfield__label"></label></div>\n'
   ..'</div></div>\n'
 
 ct.main='<main class="sidePanel-container mdl-layout__content">\n'
 
-  ..(sidePanel and sidePanelTemplate(true) or '')
+  ..SidePanelTemplate()
 
   ..'<div class="mdl-layout__content">'
 
 if key.search then
   ct.dialog={{
     id='dialog_preset',
-    content='<label class="icon mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="lock"><input type="checkbox" id="lock" class="mdl-icon-toggle__input"'..(key.lock and ' checked' or '')..'><i class="mdl-icon-toggle__label material-icons">lock</i></label>'
+    content='<label class="icon mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="lock"><input id="lock" class="mdl-icon-toggle__input"'..Checkbox(key.lock)..'><i class="mdl-icon-toggle__label material-icons">lock</i></label>'
       ..'登録名<div class="mdl-textfield mdl-js-textfield"><input class="mdl-textfield__input" type="text" value="'..EdcbHtmlEscape(preset or '')..'" id="preset_name"><label class="mdl-textfield__label" for="preset_name"></label></div>'
       ..'※同じ名前がある場合上書きします',
     button='<button id="save_preset" class="mdl-button" type="submit">保存</button>'
@@ -164,7 +197,7 @@ if key.search then
 
   ct.main=ct.main..'<div class="mdl-grid chip-container"><div>'
   for i,v in ipairs(presetList) do
-    lock=tonumber(edcb.GetPrivateProfile(v..'_Search','lock',false,ini))~=0
+    lock=tonumber(edcb.GetPrivateProfile(v..'_Search','lock',false,INI))~=0
     ct.main=ct.main..'<a class="mdl-chip mdl-chip--contact'..(lock and '' or ' mdl-chip--deletable')..'" href="search.html?preset='..mg.url_encode(v)..'">'
       ..'<span class="mdl-chip__contact mdl-color--teal mdl-color-text--white">'..EdcbHtmlEscape(v:sub(1,(v:match('^[%w%p]') and 1 or 3)))..'</span>'
       ..'<span class="mdl-chip__text">'..EdcbHtmlEscape(v)..'</span>'
@@ -177,8 +210,6 @@ if key.search then
   ct.main=ct.main..'<span></span></div></div>\n'
 end
 
-b=(post or preset or dataID~=0 or mg.get_var(mg.request_info.query_string, 'andKey')) and edcb.SearchEpg(key) or {}
-
 --ここからkeyはHTML出力用
 key.andKey=EdcbHtmlEscape(key.andKey)
 key.notKey=EdcbHtmlEscape(key.notKey)
@@ -187,67 +218,64 @@ ct.main=ct.main..'<div class="mdl-grid">\n<form id="search" method="POST" action
   ..'<div class="main-content mdl-cell mdl-cell--12-col mdl-shadow--4dp">\n'
   ..'<div class="form-container"><div class="mdl-grid mdl-grid--no-spacing form">\n'
 
-  ..(key.search and '<div class="mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing">\n<div class="mdl-cell mdl-cell--3-col mdl-cell--2-col-tablet">詳細検索</div>\n'
-  ..'<div class="mdl-layout-spacer mdl-cell--hide-desktop mdl-cell--hide-tablet"></div>\n'
-  ..'<div><label for="advanced" class="mdl-switch mdl-js-switch"><input id="advanced" name="advanced" class="mdl-switch__input" type="checkbox"'..(mg.get_var(post, 'advanced') and ' checked' or '')..'><span class="mdl-switch__label"></span></label></div></div>\n' or '')
-  ..'<input type="hidden" name="ctok" value="'..CsrfToken()..'">\n'
-  ..'<input type="hidden" name="ctok" value="'..CsrfToken('epgcustom.html')..'">\n'
+  ..(not key.search and '<input type="hidden" name="id" value="'..(mg.get_var(post, 'id') or dataID)..'">\n'
+    or '<div class="mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing">\n<div class="mdl-cell mdl-cell--3-col mdl-cell--2-col-tablet">アーカイブ検索</div>\n'
+      ..'<div class="mdl-layout-spacer mdl-cell--hide-desktop mdl-cell--hide-tablet"></div>\n'
+      ..'<div><label for="archive" class="mdl-switch mdl-js-switch"><input id="archive" name="archive" class="mdl-switch__input"'..Checkbox(archive)..'><span class="mdl-switch__label"></span></label></div></div>\n'
+
+      ..'<div class="mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing">\n<div class="mdl-cell mdl-cell--3-col mdl-cell--2-col-tablet mdl-cell--middle">日時指定</div>\n'
+      ..'<div class="mdl-cell mdl-cell--9-col mdl-grid mdl-grid--no-spacing"><div class="mdl-cell--middle"><div class="mdl-textfield mdl-js-textfield"><input id="startDate" class="mdl-textfield__input" type="date" name="startDate" value='..(range and mg.get_var(post, 'startDate') or '')..'><label class="mdl-textfield__label" for="startDate"><span class="mdl-cell--hide-desktop mdl-cell--hide-tablet">検索開始日</span></label></div><div class="mdl-textfield mdl-js-textfield"><input id="startTime-from" class="mdl-textfield__input" type="time" name="startTime" value='..(range and mg.get_var(post, 'startTime') or '00:00')..'><label class="mdl-textfield__label" for="startTime-from"></label></div>'
+      ..'</div><div class="mdl-cell--middle"><div class="mdl-layout-spacer mdl-cell--hide-desktop mdl-cell--hide-tablet"></div><span class="tilde">～</span><div class="mdl-textfield mdl-js-textfield"><input id="endDate" class="mdl-textfield__input" type="date" name="endDate" value='..(range and mg.get_var(post, 'endDate') or '')..'><label class="mdl-textfield__label" for="endDate"><span class="mdl-cell--hide-desktop mdl-cell--hide-tablet">検索終了日</span></label></div><div class="mdl-textfield mdl-js-textfield"><input id="endTime-from" class="mdl-textfield__input" type="time" name="endTime" value="'..(range and mg.get_var(post, 'endTime') or '00:00')..'"><label class="mdl-textfield__label" for="endTime-from"></label></div></div>'
+      ..'</div></div>\n'
+
+      ..'<div class="mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing">\n<div class="mdl-cell mdl-cell--3-col mdl-cell--2-col-tablet">詳細検索</div>\n'
+      ..'<div class="mdl-layout-spacer mdl-cell--hide-desktop mdl-cell--hide-tablet"></div>\n'
+      ..'<div><label for="advanced" class="mdl-switch mdl-js-switch"><input id="advanced" name="advanced" class="mdl-switch__input"'..Checkbox(mg.get_var(post, 'advanced'))..'><span class="mdl-switch__label"></span></label></div></div>\n'
+  )
+
+  ..'<input type="hidden" name="ctok" class="ctok" value="'..CsrfToken()..'">\n'
+  ..'<input type="hidden" name="ctok" class="ctok" id="custom" value="'..CsrfToken('epgcustom.html')..'" disabled>\n'
+  ..'<input type="hidden" name="ctok" class="ctok" id="api" value="'..CsrfToken('searchevent')..'" disabled>\n'
 
   ..SerchTemplate(key)
 
-  ..(not key.search and '<input type="hidden" name="id" value="'..(mg.get_var(post, 'id') or dataID)..'">\n' or '')
-
-  ..(parseAndKey(key.andKey).disableFlag and '<input type="hidden" name="disableFlag" checked>\n' or '')
+  ..(ParseAndKey(key.andKey).disableFlag and '<input type="hidden" name="disableFlag" checked>\n' or '')
  
   ..'</div></div>\n'
   ..'<div class="mdl-card__actions mdl-card--border">'
   ..(key.search and '<button class="show_dialog mdl-button mdl-js-button mdl-button--primary" type="button" data-dialog="#dialog_preset">プリセット保存</button>\n' or '')
   ..'<div class="mdl-layout-spacer"></div>\n'
-  ..'<button class="mdl-button mdl-js-button mdl-button--primary" form="search" formaction="epgcustom.html" type="submit">番組表</button>\n'
-  ..'<button class="mdl-button mdl-js-button mdl-button--primary" form="search" type="submit">検索</button></div>\n'
+  ..'<button class="submitEX mdl-button mdl-js-button mdl-button--primary" type="submit" form="search" formaction="epgcustom.html" data-ctok="#custom">番組表</button>\n'
+  ..'<button type="submit" class="mdl-button mdl-js-button mdl-button--primary">検索</button></div>\n'
   ..'</div></form>\n</div>\n'
 
-table.sort(b, function(a,b) return os.time(a.startTime) < os.time(b.startTime) end)
 
-a={}
 
-for i,v in ipairs(b) do
-  if v.startTime then
-    startTime=TimeWithZone(v.startTime)
-    endTime=v.durationSecond and startTime+v.durationSecond or startTime
-    if os.time()+9*3600<=endTime then
-      table.insert(a, v)
-    end
-  end
-end
 
-pageIndex=GetVarInt(mg.request_info.query_string,'page',0,100000) or 0
-autopage=GetVarInt(mg.request_info.query_string,'autopage',0,100000) or 0
-PAGE_COUNT=tonumber(edcb.GetPrivateProfile('SET','PAGE_COUNT','30',ini))
-if PAGE_COUNT==0 then PAGE_COUNT=#a end
+page=GetVarInt(mg.request_info.query_string,'page',0,100000) or 0
+pageCount=tonumber(edcb.GetPrivateProfile('SET','PAGE_COUNT','30',INI))
+if pageCount==0 then pageCount=#a end
 
 if #a>0 then
-  if math.ceil((#a/PAGE_COUNT)-1)>0 then
-    pg='<button class="mdl-button mdl-js-button mdl-button--icon" type="submit" form="hidden" '..(pageIndex>0 and 'formaction="search.html'..(dataID~=0 and '?id='..dataID..(autopage and '&amp;autopage='..autopage or '') or '')..'"' or 'disabled')..'><i class="material-icons">first_page</i></button>\n'
-      ..'<button class="mdl-button mdl-js-button mdl-button--icon" type="submit" form="hidden" '..(pageIndex>0 and 'formaction="search.html?page='..(pageIndex-1)..(dataID~=0 and '&amp;id='..dataID..(autopage and '&amp;autopage='..autopage or '') or '')..'"' or 'disabled')..'><i class="material-icons">chevron_left</i></button>\n'
+  pageNav='<div class="pagination mdl-grid mdl-grid--no-spacing"><div class="mdl-grid mdl-grid--no-spacing">\n'
+    ..'<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon" '..(page>0 and 'formaction="search.html'..(dataID~=0 and '?id='..dataID or '')..'"' or 'disabled')..'><i class="material-icons">first_page</i></button>\n'
+    ..'<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon" '..(page>0 and 'formaction="search.html?page='..(page-1)..(dataID~=0 and '&amp;id='..dataID or '')..'"' or 'disabled')..'><i class="material-icons">chevron_left</i></button>\n'
 
-    n=pageIndex>(#a/PAGE_COUNT-2) and math.floor(#a/PAGE_COUNT)-4 or math.max(0,pageIndex-2)
-    for i=n, n+4 do
-      pg=pg..(i>=0 and i<#a/PAGE_COUNT and '<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon'..(i==pageIndex and ' mdl-color--accent mdl-color-text--accent-contrast' or '" formaction="search.html?page='..i..(dataID~=0 and '&amp;id='..dataID..(autopage and '&amp;autopage='..autopage or '') or ''))..'">'..(i+1)..'</button>\n' or '')
-    end
-
-    pg=pg..'<button class="mdl-button mdl-js-button mdl-button--icon" type="submit" form="hidden" '..(pageIndex<(#a/PAGE_COUNT-1) and 'formaction=\"search.html?page='..(pageIndex+1)..(dataID~=0 and '&amp;id='..dataID..(autopage and '&amp;autopage='..autopage or '') or '')..'"' or 'disabled')..'><i class="material-icons">chevron_right</i></button>\n'
-      ..'<button class="mdl-button mdl-js-button mdl-button--icon" type="submit" form="hidden" '..(pageIndex<(#a/PAGE_COUNT-1) and 'formaction=\"search.html?page='..math.ceil((#a/PAGE_COUNT)-1)..(dataID~=0 and '&amp;id='..dataID..(autopage and '&amp;autopage='..autopage or '') or '')..'"' or 'disabled')..'><i class="material-icons">last_page</i></button>\n'
-
-    pg='<div class="pagination mdl-grid mdl-grid--no-spacing"><div class="mdl-grid mdl-grid--no-spacing">\n'..pg..'</div></div>\n'
+  n=math.max(math.min(page-2,math.floor(#a/pageCount)-4),0)
+  for i=n, n+4 do
+    pageNav=pageNav..((i==page or i<#a/pageCount) and '<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon'..(i==page and ' mdl-color--accent mdl-color-text--accent-contrast' or '" formaction="search.html?page='..i..(dataID~=0 and '&amp;id='..dataID or ''))..'"'..(i==page and ' disabled' or '')..'>'..(i+1)..'</button>\n' or '')
   end
 
-  ct.main=ct.main..(pg or '')..'<div class="list mdl-grid">'
-    ..'<table class="reserve mdl-data-table mdl-js-data-table mdl-shadow--4dp">\n'
-    ..'<caption>'..#a..' 件中 '..math.min(#a,pageIndex*PAGE_COUNT+1)..' － '..math.min(#a,(pageIndex+1)*PAGE_COUNT)..' 件</caption>\n'
+  pageNav=pageNav..'<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon" '..(page<(#a/pageCount-1) and 'formaction="search.html?page='..(page+1)..(dataID~=0 and '&amp;id='..dataID or '')..'"' or 'disabled')..'><i class="material-icons">chevron_right</i></button>\n'
+    ..'<button type="submit" form="hidden" class="mdl-button mdl-js-button mdl-button--icon" '..(page<(#a/pageCount-1) and 'formaction="search.html?page='..math.ceil(#a/pageCount-1)..(dataID~=0 and '&amp;id='..dataID or '')..'"' or 'disabled')..'><i class="material-icons">last_page</i></button>\n'
+    ..'</div></div>\n'
 
+  ct.main=ct.main..pageNav..'<div class="list mdl-grid">'
+
+    ..'<table class="reserve mdl-data-table mdl-js-data-table mdl-shadow--4dp">\n'
+    ..'<caption>'..#a..' 件中 '..math.min(#a,page*pageCount+1)..' － '..math.min(#a,(page+1)*pageCount)..' 件</caption>\n'
     ..'<thead class="mdl-cell--hide-phone">\n<tr class=header>\n'
-    ..' <th class="flag mdl-data-table__cell--non-numeric">録画\n'
+    ..(not archive and ' <th class="flag mdl-data-table__cell--non-numeric">録画\n' or '')
     ..' <th class="date mdl-data-table__cell--non-numeric">日付\n'
     ..' <th class="title mdl-data-table__cell--non-numeric">番組名\n'
     ..' <th class="service mdl-data-table__cell--non-numeric">サービス\n'
@@ -259,15 +287,15 @@ if #a>0 then
     rt[v.onid..'-'..v.tsid..'-'..v.sid..'-'..v.eid]=v.reserveID
   end
 
+  sn={}
+  for i,v in ipairs(edcb.GetServiceList() or {}) do
+    sn[v.onid..'-'..v.tsid..'-'..v.sid]=v.service_name
+  end
+
   ctt={}
-  for i=math.max(1,pageIndex*PAGE_COUNT+1),math.min(#a,(pageIndex+1)*PAGE_COUNT) do
+  for i=math.max(1,page*pageCount+1),math.min(#a,(page+1)*pageCount) do
     v=a[i]
-    for j,w in ipairs(edcb.GetServiceList() or {}) do
-      if w.onid==v.onid and w.tsid==v.tsid and w.sid==v.sid then
-        service_name=w.service_name
-        break
-      end
-    end
+    service_name=sn[v.onid..'-'..v.tsid..'-'..v.sid] or ''
     r=nil
     id=rt[v.onid..'-'..v.tsid..'-'..v.sid..'-'..v.eid] or nil
     if id then
@@ -275,31 +303,39 @@ if #a>0 then
       rs=r.recSetting
     end
 
-    table.insert(ctt, '<tr class="epginfo search mdl-grid--no-spacing'..(r and r.durationSecond and '" data-startTime="'..(TimeWithZone(r.startTime,9*3600)+(r.recSetting.startMargin or 0))*1000 or '')..'" data-endTime="'..(v.durationSecond and (TimeWithZone(v.startTime,9*3600)+v.durationSecond+(r and r.recSetting.endMargin or 0))*1000 or 0)
-      ..'" data-'..(sidePanel and 'onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'" data-eid="'..v.eid
-                               or 'href="epginfo.html?onid='..v.onid..'&amp;tsid='..v.tsid..'&amp;sid='..v.sid..'&amp;eid='..v.eid..(pageIndex~=0 and '&amp;page='..pageIndex or '')..(autopage~=0 and '&amp;autopage='..autopage or ''))..'">\n'
+    table.insert(ctt, '<tr class="open-info search mdl-grid--no-spacing'
+      ..(r and r.durationSecond and '" data-startTime="'..(TimeWithZone(r.startTime,9*3600)-(r.recSetting.startMargin or 0))*1000 or '')
+      ..(not archive and '" data-endTime="'..(v.durationSecond and (TimeWithZone(v.startTime,9*3600)+v.durationSecond+(r and r.recSetting.endMargin or 0))*1000 or 0) or '')
+      ..'" data-'..(SIDE_PANEL and 'onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'" data-'..(archive and 'startTime="'..TimeWithZone(v.startTime) or 'eid="'..v.eid)
+                                or 'href="epginfo.html?id='..v.onid..'-'..v.tsid..'-'..v.sid..'-'..(archive and TimeWithZone(v.startTime) or v.eid)..(page~=0 and '&amp;page='..page or ''))..'">'
 
-      ..' <td class="flag mdl-data-table__cell--non-numeric'..(r and rs.recMode==5 and ' disabled' or '')..(r and '" data-toggle="1" data-id="'..r.reserveID or '" data-oneclick="1')..'" data-onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'" data-eid="'..v.eid..'"><span'
-      ..(r and TimeWithZone(v.startTime,9*3600)>os.time() and '><label for="reserve'..r.reserveID..'" class="mdl-switch mdl-js-switch"><input type="checkbox" id="reserve'..r.reserveID..'" class="search mdl-switch__input"'..(rs.recMode~=5 and ' checked' or '')..'></label>'
-                                               or ' class="search '..(r and 'recmark">' or 'add mdl-button mdl-js-button mdl-button--fab mdl-button--colored"><i class="material-icons">add</i>'))
+      ..(not archive and '\n <td class="flag mdl-data-table__cell--non-numeric'..(r and (rs.recMode==5 and ' disabled' or '')..'" data-id="'..r.reserveID or '" data-oneclick="1')..'" data-onid="'..v.onid..'" data-tsid="'..v.tsid..'" data-sid="'..v.sid..'" data-eid="'..v.eid..'"><span'
+        ..(r and '><label for="reserve'..r.reserveID..'" class="mdl-switch mdl-js-switch"><input id="reserve'..r.reserveID..'" class="search mdl-switch__input"'..Checkbox(rs.recMode~=5)..'></label>'
+              or ' class="add mdl-button mdl-js-button mdl-button--fab mdl-button--colored"><i class="material-icons">add</i>')..'</span>' or '')
 
-      ..'</span>\n <td class="date mdl-data-table__cell--non-numeric">'..FormatTimeAndDuration(v.startTime)
+      ..'\n <td class="date mdl-data-table__cell--non-numeric">'..FormatTimeAndDuration(v.startTime)
       ..'\n <td class="title mdl-data-table__cell--non-numeric mdl-cell--4-col-phone">'..(v.shortInfo and ConvertTitle(v.shortInfo.event_name) or '')
-      ..'\n <td class="service mdl-data-table__cell--non-numeric">'..service_name
+      ..'\n <td class="service mdl-data-table__cell--non-numeric"><span><img class="logo" src="'..PathToRoot()..'api/logo?onid='..v.onid..'&amp;sid='..v.sid..'"><span>'..service_name
       ..'\n <td class="info mdl-data-table__cell--non-numeric">'..(v.shortInfo and v.shortInfo.text_char or '')
       ..'\n')
   end
 
-  ct.main=ct.main..table.concat(ctt)..'</table>\n</div>\n'..(pg or '')
+  ct.main=ct.main..table.concat(ctt)..'</table>\n</div>\n'..pageNav
 end
 ct.main=ct.main..'\n</div>\n'
 
 if dataID>0 or post or preset or mg.get_var(mg.request_info.query_string, 'andKey') then
   ct.main=ct.main..'<form id="hidden" method="POST">\n'
     ..(not key.search and '<input type="hidden" name="id" value="'..(mg.get_var(post, 'id') or dataID)..'">\n' or '')
-    ..'<input type="hidden" name="ctok" value="'..CsrfToken()..'">\n'
-    ..'<input type="hidden" name="ctok" value="'..CsrfToken('autoaddepginfo.html')..'">\n'
-    ..'<input type="hidden" name="andKey" value="'..parseAndKey(key.andKey).andKey..'">\n'
+    ..'<input type="hidden" class="ctok" name="ctok" value="'..CsrfToken()..'">\n'
+    ..'<input type="hidden" name="ctok" class="ctok" id="api" value="'..CsrfToken('searchevent')..'" disabled>\n'
+    ..'<input type="hidden" name="ctok" class="ctok" id="autoaddepg" value="'..CsrfToken('autoaddepginfo.html')..'" disabled>\n'
+    ..(archive and '<input type="hidden" name="archive" value="1">\n' or '')
+    ..(range and '<input type="hidden" name="startDate" value="'..mg.get_var(post, 'startDate')..'">\n'
+      ..'<input type="hidden" name="startTime" value="'..mg.get_var(post, 'startTime')..'">\n'
+      ..'<input type="hidden" name="endDate" value="'..mg.get_var(post, 'endDate')..'">\n'
+      ..'<input type="hidden" name="endTime" value="'..mg.get_var(post, 'endTime')..'">\n' or '')
+    ..'<input type="hidden" name="andKey" value="'..ParseAndKey(key.andKey).andKey..'">\n'
     ..'<input type="hidden" name="notKey" value="'..key.notKey..'">\n'
     ..(key.regExpFlag and '<input type="hidden" name="regExpFlag" value="1">\n' or '')
     ..(key.titleOnlyFlag and '<input type="hidden" name="titleOnlyFlag" value="1">\n' or '')
@@ -313,8 +349,8 @@ if dataID>0 or post or preset or mg.get_var(mg.request_info.query_string, 'andKe
     ..(key.chkDurationMax and '<input type="hidden" name="chkDurationMax" value="'..key.chkDurationMax..'">\n' or '')
     ..(key.chkRecEnd and '<input type="hidden" name="chkRecEnd" checked>\n' or '')
     ..(key.chkRecDay and '<input type="hidden" name="chkRecDay" value="'..key.chkRecDay..'">\n' or '')
-    ..(parseAndKey(key.andKey).disableFlag and '<input type="hidden" name="disableFlag" checked>\n' or '')
-    ..(parseAndKey(key.andKey).caseFlag and '<input type="hidden" name="caseFlag" checked>\n' or '')
+    ..(ParseAndKey(key.andKey).disableFlag and '<input type="hidden" name="disableFlag" checked>\n' or '')
+    ..(ParseAndKey(key.andKey).caseFlag and '<input type="hidden" name="caseFlag" checked>\n' or '')
 
   if key.contentList then
     for i,v in ipairs(key.contentList) do
@@ -340,10 +376,10 @@ if dataID>0 or post or preset or mg.get_var(mg.request_info.query_string, 'andKe
   ct.main=ct.main..'</form>\n'
 end
 
-ct.main=ct.main..'<button id="add" class="mdl-button mdl-js-button mdl-button--fab mdl-button--raised mdl-button--colored" type="submit" form="hidden" '
-  ..(key.search and ((post or mg.get_var(mg.request_info.query_string, 'andKey')) and 'formaction="autoaddepginfo.html"' or 'disabled')..'><i class="material-icons">add'
-                 or 'formaction="autoaddepginfo.html?id='..(mg.get_var(post, 'id') or dataID)..(autopage~=0 and '&amp;page='..autopage or '')..'"><i class="material-icons">edit')..'</i></button>\n'
+ct.main=ct.main..'<button id="add" class="mdl-button mdl-js-button mdl-button--fab mdl-button--raised mdl-button--colored submitEX" form="hidden" data-ctok="#autoaddepg'
+  ..(key.search and '" '..((not archive and post or mg.get_var(mg.request_info.query_string, 'andKey')) and 'formaction="autoaddepginfo.html"' or 'disabled')..'><i class="material-icons">add'
+                 or '" formaction="autoaddepginfo.html?id='..(mg.get_var(post, 'id') or dataID)..'"><i class="material-icons">edit')..'</i></button>\n'
 
-ct=template(ct)
+ct=Template(ct)
 
-mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))

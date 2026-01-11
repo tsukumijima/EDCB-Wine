@@ -1,36 +1,71 @@
-.jikkyo-comments {
+#jikkyo-comm {
+  /* The top/bottom border of #jikkyo-comm must be 1px */
   border: 1px solid #ccc;
   flex: 0 0 25%;
-  font-size: small;
   margin-left: 1px;
-  overflow: auto;
 }
 
-.jikkyo-comments > .closed {
+#jikkyo-comm.minimized {
+  flex: none;
+  width: 0;
+}
+
+#jikkyo-comm > button {
+  display: none;
+  margin: 0;
+}
+
+#jikkyo-comm.shiftable > button {
+  display: unset;
+}
+
+#jikkyo-comm.minimized > button {
+  display: none;
+}
+
+#jikkyo-chats {
+  font-size: small;
+  overflow: auto;
+  height: 100%;
+}
+
+#jikkyo-chats > .closed {
   border-top: 1px dotted #aaa;
 }
 
-.jikkyo-comments > div > b {
-  background-color: #fff;
-  color: #00c;
-  font-weight: normal;
+#jikkyo-chats > div > .nico {
+  background: #fff;
+  color: #00a;
+  margin-left: 0.2em;
+  margin-right: 0.2em;
 }
 
-.jikkyo-comments > div > strong {
-  background-color: #fff;
-  color: #c00;
+#jikkyo-chats > div > .refuge {
+  background: #fff;
+  color: #900;
+  margin-left: 0.2em;
+  margin-right: 0.2em;
 }
 
-.jikkyo-comments .dark {
+#jikkyo-chats .dark {
   color: #fff;
 }
 
-.jikkyo-comments .light {
+#jikkyo-chats .light {
   color: #000;
+}
+
+.video-full-container:fullscreen #jikkyo-comm {
+  display: none;
+}
+
+.video-full-container:-webkit-full-screen #jikkyo-comm {
+  display: none;
 }
 
 .dplayer-danmaku-item {
   display: inline-block;
+  font-family: "Meiryo", "Kosugi Maru Bold", sans-serif;
   font-weight: bold;
   line-height: 1;
   pointer-events: none;
@@ -88,4 +123,28 @@
   to {
     visibility: visible;
   }
+}
+
+@font-face {
+  font-family: "Kosugi";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../Kosugi-Regular.woff2") format("woff2"),
+    url("Kosugi-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Kosugi Maru";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../KosugiMaru-Regular.woff2") format("woff2"),
+    url("KosugiMaru-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Kosugi Maru Bold";
+  font-style: normal;
+  font-weight: 700;
+  src: url("../KosugiMaru-Bold.woff2") format("woff2"),
+    url("KosugiMaru-Bold.woff2") format("woff2");
 }

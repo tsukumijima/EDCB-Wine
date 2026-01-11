@@ -22,10 +22,10 @@ s.onend=function(aborted){ //callback for test ended/aborted
 		initUI();
     }
 }
-s.setParameter("url_dl","speedtest_garbage.lua")
-s.setParameter("url_ul","speedtest_empty.lua")
-s.setParameter("url_ping","speedtest_empty.lua")
-s.setParameter("url_getIp","speedtest_getip.lua")
+s.setParameter("url_dl","speedtest.lua?q=garbage")
+s.setParameter("url_ul","speedtest.lua?q=empty")
+s.setParameter("url_ping","speedtest.lua?q=empty")
+s.setParameter("url_getIp","speedtest.lua?q=getip")
 
 function startStop(){ //start/stop button pressed
 	if(s.getState()==3){
@@ -152,6 +152,18 @@ function I(id){return document.getElementById(id);}
 			margin: 0 auto;
 		}
 	}
+	@media all and (prefers-color-scheme: dark){
+		html,body{
+			background:#202020;
+			color:#F4F4F4;
+		}
+		h1{
+			color:#E0E0E0;
+		}
+		a{
+			color:#9090FF;
+		}
+	}
 
 </style>
 </head>
@@ -188,7 +200,7 @@ function I(id){return document.getElementById(id);}
 	</div>
 </div>
 <a href="index.html">Menu</a><br><br>
-<a href="https://github.com/librespeed/speedtest">Source code (LibreSpeed)</a>
+<a rel="noreferrer" href="https://github.com/librespeed/speedtest">Source code (LibreSpeed)</a>
 <script type="text/javascript">
     initUI();
 </script>

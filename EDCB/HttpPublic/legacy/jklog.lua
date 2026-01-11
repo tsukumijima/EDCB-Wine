@@ -1,5 +1,6 @@
 -- メディアファイルのメタデータをもとに実況のログを取得する
 dofile(mg.script_name:gsub('[^\\/]*$','')..'util.lua')
+dofile(mg.script_name:gsub('[^\\/]*$','')..'jkconst.lua')
 
 -- TOT時刻の範囲とネットワークIDとサービスIDを取得する
 function ExtractTotListAndServiceIDFromPsiData(f)
@@ -141,25 +142,105 @@ function ExtractTotListAndServiceIDFromPsiData(f)
   return totList,nid,sid
 end
 
+-- 番組情報ファイルから番組の時刻の範囲とネットワークIDとサービスIDを取得する
+function ExtractTotListAndServiceIDFromProgramText(f)
+  local totList,nid,sid=nil,nil,nil
+  -- BOMと空白類を除去
+  local s=(f:read('*a') or ''):gsub('^\xef\xbb\xbf',''):gsub('[\t\r ]','')
+
+  -- 開始日時
+  local year,month,day,hour,min,sec=s:match('^(20[0-9][0-9])/([01][0-9])/([0-3][0-9])%([^)\n]*%)([0-2][0-9]):([0-5][0-9]):([0-5][0-9])')
+  if not year then
+    year,month,day,hour,min=s:match('^(20[0-9][0-9])/([01][0-9])/([0-3][0-9])%([^)\n]*%)([0-2][0-9]):([0-5][0-9])')
+  end
+  if year then
+    local t={year=tonumber(year),month=tonumber(month),day=tonumber(day),hour=tonumber(hour),min=tonumber(min),sec=tonumber(sec or 0),isdst=false}
+    local tot=TimeWithZone(t,9*3600)
+    -- 終了時刻
+    hour,min,sec=s:match('^[^\n]*([0-2][0-9]):([0-5][0-9]):([0-5][0-9])\n')
+    if not hour then
+      hour,min=s:match('^[^\n]*([0-2][0-9]):([0-5][0-9])\n')
+    end
+    if hour then
+      t.hour=tonumber(hour)
+      t.min=tonumber(min)
+      t.sec=tonumber(sec or 0)
+      local totEnd=TimeWithZone(t,9*3600)
+      if totEnd<tot then
+        totEnd=totEnd+24*3600
+      end
+      totList={{sec=0,tot=tot,totEnd=totEnd}}
+    end
+  end
+
+  -- 日時とサービス名と番組名をスキップ
+  local i,j=s:find('^[^\n]*\n[^\n]*\n.-\n\n')
+  if i then
+    -- 番組内容をスキップ
+    i,j=s:find('^.-\n\n',j+1)
+    if i then
+      -- 詳細情報(UTF-8またはShift_JIS)があればスキップ
+      if s:find('^詳細情報\n',j+1) or s:find('^\x8f\xda\x8d\xd7\x8f\xee\x95\xf1\n',j+1) then
+        i,j=s:find('^[^\n]*\n.-\n\n\n',j+1)
+      end
+      if i then
+        -- ネットワークIDとサービスID
+        nid,sid=s:match('\n\nOriginalNetworkID:([0-9]?[0-9]?[0-9]?[0-9]?[0-9])[^\n]*\nTransportStreamID:[0-9]+[^\n]*\nServiceID:([0-9]?[0-9]?[0-9]?[0-9]?[0-9])',j-1)
+        if nid then
+          nid=tonumber(nid)
+          sid=tonumber(sid)
+        end
+      end
+    end
+  end
+  return totList,nid,sid
+end
+
 code=500
 if JKRDLOG_PATH then
   code=404
   fpath=mg.get_var(mg.request_info.query_string,'fname')
   if fpath then
     fpath=DocumentToNativePath(fpath)
-    if fpath then
+  end
+  if fpath then
+    totList=nil
+    ext=fpath:match('%.[0-9A-Za-z]+$') or ''
+    extts=edcb.GetPrivateProfile('SET','TSExt','.ts','EpgTimerSrv.ini')
+    if IsEqualPath(ext,extts) then
+      f=edcb.io.open(fpath,'rb')
+      if f then
+        code=500
+        fsec,fsize=GetDurationSec(f)
+        tot,nid,sid=GetTotAndServiceID(f)
+        if fsec and tot then
+          totList={{sec=0,tot=tot,totEnd=tot+fsec}}
+        end
+        f:close()
+      end
+    else
       f=edcb.io.open(fpath:gsub('%.[0-9A-Za-z]+$','')..'.psc','rb')
       if f then
         code=500
         totList,nid,sid=ExtractTotListAndServiceIDFromPsiData(f)
-        if totList and nid and sid then
-          code=404
-          id=GetJikkyoID(nid,sid)
-          if id then
-            code=200
-          end
-        end
         f:close()
+      else
+        f=edcb.io.open(fpath:gsub('%.[0-9A-Za-z]+$','')..'.program.txt','rb')
+        if f then
+          code=500
+          totList,nid,sid=ExtractTotListAndServiceIDFromProgramText(f)
+          f:close()
+        end
+      end
+    end
+    if totList and nid and sid then
+      code=404
+      jkID=GetVarInt(mg.request_info.query_string,'jkid',1,65535)
+      jkID=jkID or GetJikkyoID(nid,sid)
+      if jkID then
+        code=200
+        jkTM=GetVarInt(mg.request_info.query_string,'jktm',1)
+        jkTM=jkTM and #totList>0 and jkTM-totList[1].tot or 0
       end
     end
   end
@@ -170,7 +251,7 @@ if code==200 then
   currSec=1
   for i,v in ipairs(totList) do
     if v.tot<v.totEnd then
-      cmd=QuoteCommandArgForPath(JKRDLOG_PATH)..' '..id..' '..v.tot..' '..v.totEnd
+      cmd=(WIN32 and QuoteCommandArgForPath(JKRDLOG_PATH) or FindToolsCommand(JKRDLOG_PATH))..' jk'..jkID..' '..(v.tot+jkTM)..' '..(v.totEnd+jkTM)
       f=edcb.io.popen(WIN32 and '"'..cmd..'"' or cmd)
       if f then
         while true do
@@ -180,7 +261,7 @@ if code==200 then
             -- ヘッダを余分に挿入してチャンクの数と秒数を一致させる
             extraHead=buf:match('^<!%-%- J=[0-9]+')
             if extraHead then
-              extraHead=extraHead..';T='..v.tot..';L=0;N=0'
+              extraHead=extraHead..';T='..(v.tot+jkTM)..';L=0;N=0'
               extraHead=extraHead..(' '):rep(76-#extraHead)..'-->\n'
               while currSec<v.sec do
                 ct:Append(extraHead)

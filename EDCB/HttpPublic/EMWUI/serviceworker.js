@@ -1,17 +1,14 @@
 // キャッシュ名とキャッシュファイルの指定
-var CACHE_NAME = 'v1';
+var CACHE_NAME = 'v2';
 var cacheList = [
-	'./css/dialog-polyfill.css',
 	'./css/material.min.css',
-	'./js/dialog-polyfill.js',
 	'./js/hammer.min.js',
 	'./js/jquery.hammer.js',
 	'./js/jquery.ui.touch-punch.min.js',
 	'./js/jquery-3.3.1.min.js',
 	'./js/jquery-ui.min.js',
 	'./js/material.min.js',
-	'https://fonts.googleapis.com/icon?family=Material+Icons',
-	'https://fonts.gstatic.com/s/materialicons/v140/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2'
+	'./material-symbols-outlined.woff2'
 ];
 
 // インストール
@@ -25,6 +22,10 @@ self.addEventListener('install', function(event) {
 
 // キャッシュロード
 self.addEventListener('fetch', function(event) {
+	// APIによるリクエストを除外
+	if (event.request.destination === '') {
+		return;
+	}
 	event.respondWith(
 		caches.open(CACHE_NAME).then(function(cache) {
 			return cache.match(event.request).then(function(response) {

@@ -4,7 +4,7 @@
 
 # 更新する EDCB のバージョン
 # このバージョンは tsukumijima/DTV-Builds の GitHub リポジトリに公開されているものと一致している必要がある
-EDCB_VERSION="241220"
+EDCB_VERSION="251115"
 
 # ----------------------------------------------------------------------------------------------------
 
@@ -30,13 +30,13 @@ rm -rf EDCB-${EDCB_VERSION}/EdcbPlugIn/
 rm -rf EDCB-${EDCB_VERSION}/PostBatExamples/
 rm -rf EDCB-${EDCB_VERSION}/Setting/HttpPublic.ini  # EDCB-Wine 側で別途カスタマイズしているため
 rm -rf EDCB-${EDCB_VERSION}/Tools/asyncbuf.exe
+rm -rf EDCB-${EDCB_VERSION}/Tools/edcbnosuspend.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/ffmpeg.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/ffprobe.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/psisiarc.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/psisimux.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/relayread.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/tsmemseg.exe
-rm -rf EDCB-${EDCB_VERSION}/Tools/tsreadex.exe
 rm -rf EDCB-${EDCB_VERSION}/Tools/*.bat
 rm -rf EDCB-${EDCB_VERSION}/Tools/*.dll
 rm -rf EDCB-${EDCB_VERSION}/Tools/*.ps1

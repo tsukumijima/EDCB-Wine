@@ -13,11 +13,11 @@ for i,v in ipairs(edcb.GetReserveData()) do
 end
 
 preset=mg.get_var(mg.request_info.query_string, 'preset')
-Olympic=mg.get_var(mg.request_info.query_string, 'Olympic')
+olympic=mg.get_var(mg.request_info.query_string, 'Olympic')
 
 _preset=nil
 presetList={}
-for v in edcb.GetPrivateProfile('search','list','',ini):gmatch('[^,]+') do
+for v in edcb.GetPrivateProfile('search','list','',INI):gmatch('[^,]+') do
   if v==preset then
     _preset=preset..'_Search'
   end
@@ -29,88 +29,81 @@ if not _preset then
 end
 
 if preset then
-    key={
-      andKey=edcb.GetPrivateProfile(_preset,'andKey','',ini),
-      notKey=edcb.GetPrivateProfile(_preset,'notKey','',ini),
-      regExpFlag=tonumber(edcb.GetPrivateProfile(_preset,'regExpFlag',false,ini))~=0,
-      titleOnlyFlag=tonumber(edcb.GetPrivateProfile(_preset,'titleOnlyFlag',false,ini))~=0,
-      aimaiFlag=tonumber(edcb.GetPrivateProfile(_preset,'aimaiFlag',false,ini))~=0,
-      notContetFlag=tonumber(edcb.GetPrivateProfile(_preset,'notContetFlag',false,ini))~=0,
-      notDateFlag=tonumber(edcb.GetPrivateProfile(_preset,'notDateFlag',false,ini))~=0,
-      freeCAFlag=tonumber(edcb.GetPrivateProfile(_preset,'freeCAFlag',0,ini)),
-      chkRecEnd=tonumber(edcb.GetPrivateProfile(_preset,'chkRecEnd',false,ini))~=0,
-      chkRecDay=tonumber(edcb.GetPrivateProfile(_preset,'chkRecDay',0,ini)),
-      chkRecNoService=tonumber(edcb.GetPrivateProfile(_preset,'chkRecNoService',false,ini))~=0,
-      chkDurationMin=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMin',0,ini)),
-      chkDurationMax=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMax',0,ini)),
-      days=tonumber(edcb.GetPrivateProfile(_preset,'days',0,ini)),
-      contentList={},
-      serviceList={},
-      dateList={},
-      lock=tonumber(edcb.GetPrivateProfile(_preset,'lock',false,ini))~=0,
-    }
-
-    for i=0,1000 do
-      v=tonumber(edcb.GetPrivateProfile(_preset,'contentList'..i,0,ini))
-      if v==0 then break end
-      table.insert(key.contentList, {content_nibble=v})
-    end
-
-    for i=0,1000 do
-      v=edcb.GetPrivateProfile(_preset,'serviceList'..i,0,ini)
-      if v==0 then break end
-      m={string.match(v, '^(%d+)%-(%d+)%-(%d+)$')}
-      if #m==3 then
-        table.insert(key.serviceList, {onid=0+m[1], tsid=0+m[2], sid=0+m[3]})
-      end
-    end
-
-    for v in string.gmatch(edcb.GetPrivateProfile(_preset,'dateList','',ini), '[^,]+') do
-      m={string.match(v, '^(.-)%-(%d+):(%d+)%-(.-)%-(%d+):(%d+)$')}
-      if #m==6 then
-        dateInfo={
-          startDayOfWeek=({['日']=0,['月']=1,['火']=2,['水']=3,['木']=4,['金']=5,['土']=6})[m[1]],
-          endDayOfWeek=({['日']=0,['月']=1,['火']=2,['水']=3,['木']=4,['金']=5,['土']=6})[m[4]]
-        }
-        if dateInfo.startDayOfWeek and dateInfo.endDayOfWeek then
-          dateInfo.startHour=0+m[2]
-          dateInfo.startMin=0+m[3]
-          dateInfo.endHour=0+m[5]
-          dateInfo.endMin=0+m[6]
-          table.insert(key.dateList, dateInfo)
-        end
-      end
-    end
-elseif post then
-  key=getSearchKey(post)
-elseif Olympic then
   key={
-    andKey='(オ|パラ)リンピック|五輪|FIFAワールドカップ',
-    notKey='',
-    regExpFlag=true,
-    titleOnlyFlag=true,
-    chkDurationMin=10,
-    contentList={{content_nibble=262}},
+    andKey=edcb.GetPrivateProfile(_preset,'andKey','',INI),
+    notKey=edcb.GetPrivateProfile(_preset,'notKey','',INI),
+    regExpFlag=tonumber(edcb.GetPrivateProfile(_preset,'regExpFlag',false,INI))~=0,
+    titleOnlyFlag=tonumber(edcb.GetPrivateProfile(_preset,'titleOnlyFlag',false,INI))~=0,
+    aimaiFlag=tonumber(edcb.GetPrivateProfile(_preset,'aimaiFlag',false,INI))~=0,
+    notContetFlag=tonumber(edcb.GetPrivateProfile(_preset,'notContetFlag',false,INI))~=0,
+    notDateFlag=tonumber(edcb.GetPrivateProfile(_preset,'notDateFlag',false,INI))~=0,
+    freeCAFlag=tonumber(edcb.GetPrivateProfile(_preset,'freeCAFlag',0,INI)),
+    chkRecEnd=tonumber(edcb.GetPrivateProfile(_preset,'chkRecEnd',false,INI))~=0,
+    chkRecDay=tonumber(edcb.GetPrivateProfile(_preset,'chkRecDay',0,INI)),
+    chkRecNoService=tonumber(edcb.GetPrivateProfile(_preset,'chkRecNoService',false,INI))~=0,
+    chkDurationMin=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMin',0,INI)),
+    chkDurationMax=tonumber(edcb.GetPrivateProfile(_preset,'chkDurationMax',0,INI)),
+    days=tonumber(edcb.GetPrivateProfile(_preset,'days',0,INI)),
+    contentList={},
     serviceList={},
-    days=3
+    dateList={},
+    lock=tonumber(edcb.GetPrivateProfile(_preset,'lock',false,INI))~=0,
   }
+
+  for i=0,1000 do
+    v=tonumber(edcb.GetPrivateProfile(_preset,'contentList'..i,0,INI))
+    if v==0 then break end
+    table.insert(key.contentList, {content_nibble=v})
+  end
+
+  for i=0,1000 do
+    v=edcb.GetPrivateProfile(_preset,'serviceList'..i,'0',INI)
+    if v=='0' then break end
+    m={string.match(v, '^(%d+)%-(%d+)%-(%d+)$')}
+    if #m==3 then
+      table.insert(key.serviceList, {onid=0+m[1], tsid=0+m[2], sid=0+m[3]})
+    end
+  end
+
+  for v in string.gmatch(edcb.GetPrivateProfile(_preset,'dateList','',INI), '[^,]+') do
+    m={string.match(v, '^(.-)%-(%d+):(%d+)%-(.-)%-(%d+):(%d+)$')}
+    if #m==6 then
+      dateInfo={
+        startDayOfWeek=({['日']=0,['月']=1,['火']=2,['水']=3,['木']=4,['金']=5,['土']=6})[m[1]],
+        endDayOfWeek=({['日']=0,['月']=1,['火']=2,['水']=3,['木']=4,['金']=5,['土']=6})[m[4]]
+      }
+      if dateInfo.startDayOfWeek and dateInfo.endDayOfWeek then
+        dateInfo.startHour=0+m[2]
+        dateInfo.startMin=0+m[3]
+        dateInfo.endHour=0+m[5]
+        dateInfo.endMin=0+m[6]
+        table.insert(key.dateList, dateInfo)
+      end
+    end
+  end
+elseif post then
+  key=GetSearchKey(post)
+elseif olympic then
+  key=GetSearchKey()
+  key.andKey='(オ|パラ)リンピック|五輪|FIFAワールドカップ'
+  key.regExpFlag=true
+  key.titleOnlyFlag=true
+  key.chkDurationMin=10
+  key.contentList={{content_nibble=262}}
+  key.days=3
   for i,v in ipairs(edcb.GetChDataList()) do
     if v.searchFlag then table.insert(key.serviceList, v) end
   end
 end
 
-if not key then
-  key={}
-end
-
 edcb.htmlEscape=15
 
-b=edcb.SearchEpg(key)
+b=edcb.SearchEpg(key or {})
 table.sort(b, function(a,b)
-  if os.time(a.startTime)==os.time(b.startTime) then
-    return a.sid < b.sid
+  if (a.startTime and os.time(a.startTime) or 0)==(b.startTime and os.time(b.startTime) or 0) then
+    return a.sid<b.sid
   else
-    return os.time(a.startTime) < os.time(b.startTime)
+    return (a.startTime and os.time(a.startTime) or 0)<(b.startTime and os.time(b.startTime) or 0)
   end
 end)
 
@@ -135,6 +128,8 @@ for i,v in ipairs(b)do
   end
 end
 interval=lastendTime and math.ceil((lastendTime-baseTime)/60/60) or MARGIN_HOUR+1
+if interval>48 then ONE_MIN_PX=math.max(math.floor(ONE_MIN_PX/4),1) end
+MAX_ONE_MIN_PX=math.floor(ONE_MIN_PX*1.5+0.5)
 
 SERVICE={}
 for i,v in ipairs(edcb.GetServiceList() or {}) do
@@ -143,19 +138,18 @@ end
 
 
 ct={
-  title=EdcbHtmlEscape(preset or post and '検索 ('..parseAndKey(key.andKey).andKey..')' or Olympic and 'オリンピック・FIFAワールドカップ' or ''),
-  css=epgcss(),
-  js=epgjs(baseTime-9*3600,'$(function(){$(".now").each(function(){end($(this));});setInterval("line()", 1000);});'),
-  menu=epgMenuTemplate(true),
-  progres=true,
-  macro=sidePanel,
-  searchlinks=true
+  title=EdcbHtmlEscape(preset or post and '検索 ('..ParseAndKey(key.andKey).andKey..')' or olympic and 'オリンピック・FIFAワールドカップ' or ''),
+  css=EpgCssTemplate(),
+  menu=EpgMenuTemplate(),
+  searchlinks=not SIDE_PANEL
 }
 
 ct.subheader='<div id="subheader">\n'
   ..'<nav class="mdl-navigation">\n'
   ..'<div class="mdl-layout-spacer"></div>\n'
 
+  ..'<div class="dividers navigation__item mdl-color-text--primary"><input class="ONE_MIN_PX mdl-slider mdl-js-slider" type="range" min="1" max="'..MAX_ONE_MIN_PX..'" value="'..ONE_MIN_PX..'" step="0.5" id="ONE_MIN_PX_S">'
+  ..'<div class="number"><div class="text-right mdl-textfield mdl-js-textfield"><input class="ONE_MIN_PX mdl-textfield__input" type="number" name="ONE_MIN_PX" value="'..ONE_MIN_PX..'" min="0.1" step="0.1" id="ONE_MIN_PX" style="width:1.5em"><label class="mdl-textfield__label" for="ONE_MIN_PX"></label></div>px</div></div>'
   ..'<div class="dividers navigation__item navigation__icon"><a class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored" id="now"><i class="material-icons">radio_button_checked</i></a></div>\n'
 
   ..'<div class="navigation__item navigation__icon"><a id="prev" class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored"><i class="material-icons">expand_less</i></a></div>\n'
@@ -209,42 +203,43 @@ for i,v in ipairs(st) do
   total=0
   for j,w in ipairs(v) do
     startTime=TimeWithZone(w.startTime)
-    startPx=math.min(math.floor((startTime-baseTime)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+    startPx=math.min(math.floor((startTime-baseTime)/60), 60*interval)
     endTime=w.durationSecond and startTime+w.durationSecond or startTime+10*3600 --終了時間未定
-    endPx=math.min(math.floor((endTime-baseTime)/60)*ONE_MIN_PX, ONE_MIN_PX*60*interval)
+    endPx=math.min(math.floor((endTime-baseTime)/60), 60*interval)
     if startPx-lastPx>0 then
-      table.insert(ctt, '<div class="cell" data-endtime="'..(startTime-9*3600)..'" style="height:'..(startPx-lastPx)..'px"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
+      table.insert(ctt, '<div class="cell" data-endtime="'..(startTime-9*3600)..'" style="--h:'..(startPx-lastPx)..'"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
       total=total+startPx-lastPx
       lastPx=startPx
     end
-    if endPx-lastPx>2 then
+    if endPx-lastPx>0 then
       op={
         service_name=SERVICE[('%04X%04X%04X'):format(w.onid, w.tsid, w.sid)] or '',
-        url='epginfo.html?onid='..w.onid..'&amp;tsid='..w.tsid..'&amp;sid='..w.sid..(w.past and '&amp;startTime='..startTime or '&amp;eid='..w.eid)
+        url='epginfo.html?id='..w.onid..'-'..w.tsid..'-'..w.sid..'-'..(w.past and startTime or w.eid)
       }
-      table.insert(ctt, epgcell(w, op, (i==1 and 'id="id'..j..'" ' or nil), true))
+      table.insert(ctt, CellTemplate(w, op, (i==1 and 'id="id'..j..'" ' or nil), true))
 
       total=total+endPx-lastPx
       lastPx=endPx
     end
   end
-  if total<interval*60*ONE_MIN_PX then
-    table.insert(ctt, '<div class="cell" style="height:'..(interval*60*ONE_MIN_PX-total)..'px"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
+  if total<interval*60 then
+    table.insert(ctt, '<div class="cell" style="--h:'..(interval*60-total)..'"><div class="content-wrap nothing"><div class="content"></div></div></div>\n')
   end
   table.insert(ctt, '</div></div>\n')
 end
 
 ct.main=table.concat(main)..'</div><main class="sidePanel-container mdl-layout__content">\n'
-  ..(sidePanel and sidePanelTemplate() or '')
+  .. SidePanelTemplate()
 
   ..table.concat(ctt)
   ..'</div>\n</div></div>\n'
-  ..'<form id="autoepg" method="POST" target="_blank" action="autoaddepginfo.html">\n'
+  ..'<form id="autoepg" method="POST" action="autoaddepginfo.html">\n'
   ..'<input type="hidden" name="ctok" value="'..CsrfToken('autoaddepginfo.html')..'">\n'
   ..'<input type="hidden" name="andKey">\n'
   ..'<input type="hidden" name="serviceList">\n'
   ..'</form>\n'
+  ..EpgJsTemplate(baseTime-9*3600,true)
 
-ct=template(ct)
+ct=Template(ct)
 
-mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len)..(ct.gzip and 'Content-Encoding: gzip\r\n' or '')..'\r\n'))
+mg.write(ct:Pop(Response(200,'text/html','utf-8',ct.len,ct.gzip)..'\r\n'))

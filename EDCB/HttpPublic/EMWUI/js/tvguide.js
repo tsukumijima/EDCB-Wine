@@ -1,412 +1,333 @@
-function now(text){
-	var SHOW_MIN;
-	var elapse;
-	var date = new Date();
-	var hour = createViewDate(date).getUTCHours();
-	var min = createViewDate(date).getUTCMinutes();
-	//現時刻の位置
-	if (baseTime>27) {
-		//baseTimeはUTCの時刻
-		elapse = Math.floor((date-baseTime*1000)/1000/60/60);
-	}else{
-		//baseTimeはUTC+9の「時」
-		elapse = hour - baseTime;
-		if (hour<baseTime) elapse += 24;
+class TvGuide{
+	#oneMinPx;
+	#baseTime;
+	#marginMin;
+	#container = document.getElementById('tv-guide-container');
+	#header = document.getElementById('tv-guide-header');
+	#main = document.getElementById('tv-guide-main');
+	#now(add){
+		let elapse;
+		const date = new Date();
+		const hour = createViewDate(date).getUTCHours();
+		const min = createViewDate(date).getUTCMinutes();
+		//現時刻の位置
+		if (this.#baseTime>27){
+			//baseTimeはUTCの時刻
+			elapse = Math.floor((date-this.#baseTime*1000)/1000/60/60);
+		}else{
+			//baseTimeはUTC+9の「時」
+			elapse = hour - this.#baseTime;
+			if (hour<this.#baseTime) elapse += 24;
+		}
+		//ラインに分を表示
+		if (add){
+			const text = zero(min);
+			if (text != $('#line span').text()) $('#line span').text(text);
+		}
+		return (elapse * 60 + min) * this.#oneMinPx;
 	}
-	//ラインに分を表示
-	if (SHOW_MIN && text){
-		text = ('0'+min).slice(-2);
-		if (text != $('#line span').text()) $('#line span').text(text);
+	#end($cell, mark){
+		setTimeout(() => {
+			const $next = $cell.next();
+			$next.find('.notification').attr('disabled', true).children().text('notifications');
+			this.#end($next, mark);
+
+			//番組終了
+			setTimeout(() => {
+				$cell.find('.addreserve').remove();
+				if (mark) $cell.children().addClass('end');
+			}, $cell.data('endtime')*1000 - new Date().getTime());
+		}, ($cell.data('endtime') - 30)*1000 - new Date().getTime());
 	}
-	return (elapse * 60 + min) * oneminpx;
-}
-
-//現時刻のライン移動
-function line(){
-	$('#line').css('top', now(true));
-}
-
-function end(cell, mark){
-	setTimeout(function(){
-		var next = cell.next();
-		next.find('.notification').attr('disabled', true).children().text('notifications');
-		end(next, mark);
-
-		//番組終了
-		setTimeout(function(){
-			cell.find('.addreserve').remove();
-			if (mark) cell.children().addClass('end');
-		}, cell.data('endtime')*1000 - new Date().getTime());
-	}, (cell.data('endtime') - 30)*1000 - new Date().getTime());
-}
-
-var intervalID;
-function jump(){
-	if (intervalID) clearInterval(intervalID);
-	$('#tv-guide-container').animate({scrollTop: now() - marginmin * oneminpx}, 550, 'swing');
-}
-
-var guide_top;
-var guide_height;
-$(window).on('load resize', function(){
-	$('#line').width($('#tv-guide-container').width());
-	guide_top = $('#tv-guide-container').offset().top + $('#tv-guide-header').height();
-	guide_height = $('#tv-guide-container').height();
-});
-
-$(function(){
-	var target = $('#tv-guide-container');
-	if ($('.station:last-child').offset().left+$('.station:last-child').width() < target.width()){
-		$('#tv-guide').addClass('grow');
+	#jump(){
+		this.#clearMoment();
+		$(this.#container).animate({scrollTop: this.#now() - this.#marginMin * this.#oneMinPx}, 550, 'swing');
 	}
 
-	var HIDE_SUBHEADER;
-	var speedX, speedY;
-	var FRICTION  = 0.95;
-	var LIMIT_TO_STOP = 1;
-
-	function moment(){
-		if (target.data('touched') || (Math.abs(speedX)<LIMIT_TO_STOP && Math.abs(speedY)<LIMIT_TO_STOP)) {
-			clearInterval(intervalID);
+	#fps = 1000 / 60;
+	#friction  = 0.95;
+	#limit = 1;
+	#deltaX = 0;
+	#deltaY = 0;
+	#momentID = 0;
+	#lastTime = performance.now();
+	#moment(time){
+		if (time - this.#lastTime < this.#fps){
+			this.#momentID = requestAnimationFrame((t) => this.#moment(t));
 			return;
 		}
+		this.#container.scrollBy(this.#deltaX, this.#deltaY);
 
-		speedX *= FRICTION;
-		speedY *= FRICTION;
+		this.#deltaX *= this.#friction;
+		this.#deltaY *= this.#friction;
+		this.#lastTime = time;
 
-		target.scrollLeft( target.scrollLeft() + speedX );
-		target.scrollTop( target.scrollTop() + speedY );
+		if (Math.abs(this.#deltaX)<this.#limit && Math.abs(this.#deltaY)<this.#limit) return;
+		this.#momentID = requestAnimationFrame((t) => this.#moment(t));
+	}
+	#clearMoment(){
+		if (!this.#momentID) return;
+		cancelAnimationFrame(this.#momentID);
+		this.#momentID = 0;
+		this.#deltaX = 0;
+		this.#deltaY = 0;
 	}
 
-	if (!isTouch){
-		var X, XX, Y, YY;
-		$('#tv-guide-main').on({
-		    'touchstart mousedown': function(e){
-				if (e.which != 1) return;
-				
-				X = XX = e.clientX;
-		        Y = YY = e.clientY;
+	constructor(oneMinPx, baseTime, marginMin, lastTime, titleFlag, enableHover, hasNow, addEndMark, addMin, subheader){
+		this.#oneMinPx = oneMinPx;
+		this.#baseTime = baseTime;
+		this.#marginMin = marginMin;
 
-				target.data({
-					touched: true,
-		        	X: XX,
-		        	Y: YY,
-					left: target.scrollLeft(),
-					top: target.scrollTop()
+		if ($('.station').length && $('.station:last-child').offset().left+$('.station:last-child').width() < $(this.#container).width()) $('#tv-guide').addClass('grow');
+
+		let touched;
+		this.#main.addEventListener('pointerdown', e => {
+			if (e.pointerType != 'mouse' || e.button != 0) return;
+			this.#clearMoment();
+			touched = true;
+		});
+		this.#main.addEventListener('wheel', () => this.#clearMoment());
+		this.#main.addEventListener('pointermove', e => {
+			if (!touched) return;
+
+			if (e.movementX || e.movementY) {
+				document.body.style.cursor = 'grabbing';
+				e.currentTarget.setPointerCapture(e.pointerId);
+			}
+
+			this.#deltaX = -e.movementX;
+			this.#deltaY = -e.movementY;
+
+			this.#container.scrollBy(this.#deltaX, this.#deltaY);
+		});
+		this.#main.addEventListener('pointerup', e => {
+			touched = false;
+			document.body.style.cursor = null;
+
+			this.#moment(performance.now());
+			e.currentTarget.releasePointerCapture(e.pointerId);
+		});
+
+		if (subheader && window.innerWidth < 700){
+			//サブヘッダー連動
+			let startTop, touched;
+			let show = true;
+			this.#main.addEventListener('pointerdown', e => {
+				if (e.button != 0) return;
+				$('#subheader').removeClass('serch-bar');
+				touched = true;
+				startTop = this.#container.scrollTop;
+			});
+			this.#container.addEventListener('scroll', e => {
+				if (!touched) return;
+
+				requestAnimationFrame(() => {
+					const delta = Math.floor((startTop - this.#container.scrollTop) / 2);
+					if (show){
+						if (delta < 0){
+							$('#subheader').css('margin-top', delta);
+							if (delta<=-48) show = false;
+						}else{
+							$('#subheader').css('margin-top', 0);
+							startTop = this.#container.scrollTop;
+						}
+					}else{
+						if (delta > 0){
+							$('#subheader').css('margin-top', Math.min(delta-48, 0));
+							if (delta>=48) show = true;
+						}else{
+							$('#subheader').css('margin-top', -48);
+							startTop = this.#container.scrollTop;
+						}
+					}
 				});
-			},
-			'wheel': function(){
-				if (intervalID) clearInterval(intervalID);
-			}
-		});
-		$(document).on({
-		    'touchmove mousemove': function(e){
-				if (!target.data('touched')) return;
-				e.preventDefault();
+			});
+			$(document).on({
+				'touchend mouseup': e => {
+					if (!touched) return;
 
-				$('body').addClass('drag');
-
-				XX = X;
-				YY = Y;
-
-				X = e.clientX;
-				Y = e.clientY;
-
-				target.scrollLeft( target.data('left') + target.data('X') - X );
-				target.scrollTop( target.data('top') + target.data('Y') - Y );
-			},
-		    'touchend mouseup': function(e){
-				if (!target.data('touched')) return;
-
-				$('body').removeClass('drag');
-				target.data('touched', false);
-
-				speedX = XX - X;
-				speedY = YY - Y;
-
-				//慣性スクロール？
-				intervalID = setInterval(moment, 1000/60);
-			}
-		});
-	}else if(HIDE_SUBHEADER && $(window).width() < 700){
-		//サブヘッダー連動
-		$('#tv-guide-main').data('show', true).on({
-		    'touchstart mousedown': function(e){
-		    	$('#subheader').removeClass('serch-bar');
-				$(this).data({
-					touched: true,
-					top: $('#tv-guide-container').scrollTop()
-				});
-			},
-		    'touchmove mousemove': function(e){
-				if (!$(this).data('touched')) return;
-
-				var data = $(this).data();
-				var TOP = $('#tv-guide-container').scrollTop();
-				var margin = data.top - TOP;
-				if (data.show){
-					if (margin < 0) {
-						$('#subheader').css('margin-top', margin);	//表示が多いと重い時が
-						//$('#subheader').addClass('serch-bar').css('margin-top', -48);	//不満な場合こっちを ※下のifも外すこと
-						if (margin<=-48) $(this).data('show', false);
-					}else{
-						$('#subheader').css('margin-top', 0);
-						$(this).data('top', TOP);
-					}
-				}else{
-					if (margin > 0){
-						$('#subheader').css('margin-top', Math.min(margin-48, 0));
-						//$('#subheader').addClass('serch-bar').css('margin-top', 0);	//ここも同じように
-						if (margin>=48) $(this).data('show', true);
-					}else{
-						$('#subheader').css('margin-top', -48);
-						$(this).data('top', TOP);
-					}
-				}
-			},
-		    'touchend mouseup': function(e){
-				$(this).data('touched', false);
-				var data = $(this).data();
-				var margin = data.top - $('#tv-guide-container').scrollTop();
-				if ((data.show && margin<-24) || (!data.show && margin<24)){
-					$('#subheader').addClass('serch-bar').css('margin-top', -48);
-					$(this).data('show', false);
-				}else {
-					$('#subheader').addClass('serch-bar').css('margin-top', 0);
-					$(this).data('show', true);
-				}
-			}
-		});
-	}
-
-	//番組名
-	if (!isTouch && titleControl&1 && titleControl&4 || isTouch && titleControl&2 && titleControl&16){
-		const observer = new IntersectionObserver((entries) => {
-			for(const e of entries) {
-				if (e.isIntersecting && ((e.intersectionRect.top <= e.rootBounds.top && e.intersectionRect.height < e.boundingClientRect.height) || e.rootBounds.height < e.boundingClientRect.height)){
-					$(e.target).addClass('fixed');
-				}else{
-					$(e.target).removeClass('fixed');
-				}
-			}
-		},{
-			root: document.querySelector('#tv-guide-container'),
-			rootMargin: -$('#tv-guide-header').height() +'px 10px 0px 10px',
-			threshold: [0,1]
-		});
-
-		// 監視したい要素をobserveする。
-		$('.cell,.hour').each(function(){
-			observer.observe(this);
-		});
-
-		$('#tv-guide-container').on('scroll', function(){
-			$('.cell.fixed').each(function(){
-				var base = guide_top - $(this).offset().top;
-				var content = $(this).find('.content');
-
-				if (base <= 0){
-					content.css('padding-top', '');
-				}else if(base < guide_height + $(this).height()){
-					if ($(this).children('.content-wrap').hasClass('reserve')){
-						content.css('padding-top', base-3);
-					}else{
-						content.css('padding-top', base);
-					}
+					touched = false;
+					requestAnimationFrame(() => {
+						const delta = Math.floor((startTop - this.#container.scrollTop) / 2);
+						if ((show && delta<-48/2) || (!show && delta<48/2)){
+							$('#subheader').addClass('serch-bar').css('margin-top', -48);
+							show = false;
+						}else{
+							$('#subheader').addClass('serch-bar').css('margin-top', 0);
+							show = true;
+						}
+					});
 				}
 			});
-			$('.hour.fixed').each(function(){
-				var base = guide_top - $(this).offset().top;
-				if (base > 0 && base < $(this).innerHeight()){
-					$(this).find('tt').css('padding-top', base);
-				}else{
-					$(this).find('tt').css('padding-top', '');
+		}
+
+		if (hasNow){
+			$(".station>div>div:first-child").each((i, e) => this.#end($(e), addEndMark));
+			setTimeout(() => this.#jump(), 500);
+			//現時刻のライン移動
+			setInterval(() => $('#line').css('top', this.#now(addMin)), 1000);
+		}
+		//番組名
+		if (!isMobile && titleFlag&1 && titleFlag&4 || isMobile && titleFlag&2 && titleFlag&16){
+			const observer = new IntersectionObserver(entries => {
+				for(const e of entries) {
+					const fixed = e.isIntersecting && ((e.intersectionRect.top <= e.rootBounds.top && e.intersectionRect.height < e.boundingClientRect.height) || e.rootBounds.height < e.boundingClientRect.height)
+					$(e.target).toggleClass('fixed', fixed);
 				}
+			},{
+				root: this.#container,
+				rootMargin: `${-this.#header.offsetHeight}px 10px 0px 10px`,
+				threshold: [0,1]
+			});
+
+			// 監視したい要素をobserveする。
+			$('.cell,.hour').each((i, e) => observer.observe(e));
+
+			this.#container.addEventListener('scroll', () => {
+				const top = this.#container.getBoundingClientRect().top + this.#header.offsetHeight;
+				requestAnimationFrame(() => {
+					$('.cell.fixed').each((i, e) => {
+						const base = top - e.getBoundingClientRect().top;
+						$(e).find('.content').css('padding-top', base > 0 ? base - ($(e).children('.content-wrap').hasClass('reserve') ? 3 : 0) : '');
+					});
+					$('.hour.fixed').each((i, e) => {
+						const base = top - e.getBoundingClientRect().top;
+						$(e).find('tt').css('padding-top', base > 0 ? base : '');
+					});
+				});
+			});
+		}else if (!isMobile && titleFlag&1 && titleFlag&8 || isMobile && titleFlag&2 && titleFlag&32){
+			$('main').addClass('titlescroll');
+			$('head').append(`<style>.titlescroll .content,.titlescroll .hour tt{top:${this.#header.offsetHeight}px;}</style>`)
+		}
+
+		//現時間にスクロール
+		$('#now').click(() => {
+			if (!lastTime || Date.now()<lastTime*1000) this.#jump();
+			else location.reload();
+		});
+
+		$('.ONE_MIN_PX').change(e => {
+			this.#oneMinPx = $(e.currentTarget).val();
+			$('#tv-guide').css('--ONE_MIN_PX', String(this.#oneMinPx));
+			$('.ONE_MIN_PX').val(this.#oneMinPx);
+			document.querySelector('#ONE_MIN_PX_S').MaterialSlider.change(this.#oneMinPx);
+		});
+
+		//指定時間にスクロール
+		$('.scroller').click(e => $(this.#container).animate({scrollTop: $($(e.currentTarget).attr('href')).position().top-this.#marginMin*this.#oneMinPx}, 550, 'swing'));
+
+		$('#prev').click(() => {
+			$('[id^=id]').each((i, e) => {
+				if ($(e).offset().top < -this.#container.offsetHeight) return true;
+
+				if ($(e).offset().top > this.#marginMin*this.#oneMinPx){
+					if ($(e).prevAll('[id^=id]').length) $(this.#container).animate({scrollTop: $(e).prevAll('[id^=id]').position().top-this.#marginMin*this.#oneMinPx}, 550, 'swing');
+				}else{
+					$(this.#container).animate({scrollTop: $(e).position().top-this.#marginMin*this.#oneMinPx}, 550, 'swing');
+				}
+				return false;
 			});
 		});
-	}else if (!isTouch && titleControl&1 && titleControl&8 || isTouch && titleControl&2 && titleControl&32){
-	  $('main').addClass('titlescroll');
-	  $('head').append('<style>.titlescroll .content,.titlescroll .hour tt{top:'+ $('#tv-guide-header').height()+'px;}</style>')
-	}
+		$('#next').click(() => {
+			$('[id^=id]').each((i, e) => {
+				if ($(e).offset().top < this.#container.offsetHeight) return true;
 
-	//現時間にスクロール
-	$('#now').click(function(){
-		if (!lastTime || Date.now()<lastTime*1000){
-			if (intervalID) clearInterval(intervalID);
-			jump();
-		}else{
-			location.reload();
-		}
-	});
-
-	//指定時間にスクロール
-	$('.scroller').click(function(){
-		$('#tv-guide-container').animate({scrollTop: $($(this).attr('href')).position().top-marginmin*oneminpx}, 550, 'swing');
-	});
-	
-	$('#prev').click(function(){
-		$('[id^=id]').each(function(){
-			if ($(this).offset().top > -$('#tv-guide-container').height()){
-				if ($(this).offset().top > marginmin*oneminpx){
-					if ($(this).prevAll('[id^=id]').length > 0) $('#tv-guide-container').animate({scrollTop: $(this).prevAll('[id^=id]').position().top-marginmin*oneminpx}, 550, 'swing');
-				}else{
-					$('#tv-guide-container').animate({scrollTop: $(this).position().top-marginmin*oneminpx}, 550, 'swing');
-				}
+				$(this.#container).animate({scrollTop: $(e).position().top-this.#marginMin*this.#oneMinPx}, 550, 'swing');
 				return false;
-			}
+			});
 		});
-	});
-	$('#next').click(function(){
-		$('[id^=id]').each(function(){
-			if ($(this).offset().top > $('#tv-guide-container').height()){
-				$('#tv-guide-container').animate({scrollTop: $(this).position().top-marginmin*oneminpx}, 550, 'swing');
-				return false;
-			}
+
+		//指定日に移動
+		$('#date_input').change(e => $(e.currentTarget).submit());
+		$('#forSP').click(() => $('#dateFormat').click());  //無理やりだがスマホで動くように応急処置
+
+
+		//サービス絞り込み
+		$('.select').click(e => {
+			const $e = $(e.currentTarget);
+			$('.select.mdl-color-text--accent').removeClass('mdl-color-text--accent');
+			$e.addClass('mdl-color-text--accent');
+			$('#select').text($e.text());
+			$('[for=select_service] li').show().not($e.data('val')).hide();
 		});
-	});
 
-	//指定日に移動
-	$('#date_input').change(function(){
-		$(this).submit();
-	});
-	$('#forSP').click(function(){  //無理やりだがスマホで動くように応急処置
-		$('#dateFormat').click();
-	});
-
-	//サービス絞り込み
-	$('.select').click(function(){
-		$('.select.mdl-color-text--accent').removeClass('mdl-color-text--accent');
-		$(this).addClass('mdl-color-text--accent');
-		$('#select').text($(this).text());
-		$('[for=select_service] li').show().not($(this).data('val')).hide();
-	});
-
-	//番組詳細表示
-	var popup;
-	$('.cell').mousedown(function(e){
-		if (e.which == 1){
-			pageX = e.pageX;
-			pageY = e.pageY;
-		}
-	}).mouseup(function(e){
-		//ドラッグスクロール排除
-		var self = $(this);
-		if (e.which == 1 && pageX == e.pageX && pageY == e.pageY && !popup){
-			popup = setTimeout(function(){
-				popup = false;
-				if (!$(e.target).is('a, label, .nothing')){
-					if (self.hasClass('clicked')){
-						self.removeClass('clicked');
+		//番組詳細表示
+		let popup;
+		$('.cell').click(e => {
+			if (!popup){
+				popup = setTimeout(() => {
+					popup = 0;
+					const $e = $(e.currentTarget);
+					if ($(e.target).is('a, label, .nothing')) return;
+					if ($e.hasClass('clicked')){
+						$e.removeClass('clicked');
 					}else{
 						$('.cell').removeClass('clicked');
-						createSearchLinks(self);
-						self.addClass('clicked');
+						createSearchLinks($e);
+						$e.addClass('clicked');
 					}
-				}
-			}, 200);
-		}else if (!hover && e.which == 1){
-			$('.cell').removeClass('clicked');
-		}
-	}).dblclick(function(){
-		clearTimeout(popup);
-		popup = false;
-		createSearchLinks($(this));
-		$(this).find('.open_info').click();
-	});
-
-	//マウスホバーで番組詳細表示
-	if (hover){
-		$('.cell').hover(
-			function(){
-				createSearchLinks(this);
-				$(this).addClass('clicked');
-			}, function(){
-				$(this).removeClass('clicked');
+				}, 200);
+			}else if (!enableHover) $('.cell').removeClass('clicked');
+		}).dblclick(e => {
+			clearTimeout(popup);
+			popup = 0;
+			createSearchLinks(e.currentTarget);
+			$(e.currentTarget).find('.open_info').click();
 		});
+
+		//マウスホバーで番組詳細表示
+		if (enableHover){
+			$('.cell').hover(e => {
+				createSearchLinks(e.currentTarget);
+				$(e.currentTarget).addClass('clicked');
+			}, e => $(e.currentTarget).removeClass('clicked'));
+		}
+
+		//チャンネルトグル
+		$('.stationToggle').change(e => {
+			const $e = $(`.id-${$(e.currentTarget).val()}`);
+			$(e.currentTarget).prop('checked') ? $e.show() : $e.hide();
+		});
+
+		//ジャンルトグル
+		$('.genreToggle').change(e => {
+			const $e = $(e.currentTarget);
+			$('.content-wrap.ex').removeClass('nothing choice');
+			$('.content').show();
+			if ($e.val() == 'all') return;
+
+			$('.content-wrap:not(.nothing)').not( $e.val() ).addClass('nothing ex').children().hide();
+			$( $e.val() ).addClass('choice');
+		});
+
+		//EPG取得
+		$('.api_tools').click(e => $.post(`${ROOT}api/Common`, $(e.currentTarget).data()).done(xml => Snackbar($(xml).find('info').text())));
+
+		//EPG予約
+		$('.autoepg').click(e => {
+			$('#autoepg [name=andKey]').val( $(e.currentTarget).data('andkey') );
+			const id = $(e.currentTarget).parents('.station').data('service_id');
+			if (id) $('#autoepg [name=serviceList]').val(id);
+			$('#autoepg').submit();
+		});
+
+		//予約追加・有効・無効
+		$('.addreserve').click(e => {
+			const $e = $(e.currentTarget);
+			const d = $e.data();
+			sendReserve(d, {
+				success: xml => {
+						const add = d.oneclick == 1;
+						const messege = addRecMark(xml, $e, $e.parents('.content-wrap'));
+						Snackbar(`予約を${add ? '追加' : `${messege}に`}しました`);
+				},
+				end: () => $e.parents('.cell').removeClass('clicked')
+			});
+		});
+
+		//番組詳細を表示
+		$('.open_info').click(e => getEpgInfo($(e.currentTarget).parents('.cell'), $(e.currentTarget).data()));
+		$('.close_info').click(() => $('#sidePanel, .close_info.mdl-layout__obfuscator, .open').removeClass('is-visible open'));
 	}
-
-	//チャンネルトグル
-	$('.stationToggle').change(function(){
-		var obj = $('.id-' + $(this).val());
-		if ($(this).prop('checked')){
-			obj.show();
-		}else{
-			obj.hide();
-		}
-	});
-
-	//ジャンルトグル
-	$('.genreToggle').change(function(){
-		$('.content-wrap.ex').removeClass('nothing choice');
-		$('.content').show();
-		if ($(this).val() != 'all'){
-			$('.content-wrap:not(.nothing)').not( $(this).val() ).addClass('nothing ex').children().hide();
-			$( $(this).val() ).addClass('choice');
-		}
-	});
-
-	//EPG取得
-	$('.api_tools').click(function(){
-		$.post(root + 'api/Common', $(this).data(), function(result, textStatus, xhr){
-			Snackbar.MaterialSnackbar.showSnackbar({message: $(xhr.responseXML).find('info').text()});
-		});
-	});
-
-	//EPG予約
-	$('.autoepg').click(function(){
-		$('#autoepg [name=andKey]').val( $(this).data('andkey') );
-		var service = $(this).parents('.station').data('service_id');
-		if (service){
-			$('#autoepg [name=serviceList]').val(service);
-		}
-		$('#autoepg').submit();
-	});
-
-	//予約追加・有効・無効
-	$('.addreserve').click(function(){
-		showSpinner(true);
-		var target = $(this);
-		var data = target.data();
-		data.ctok = ctok;
-
-		$.ajax({
-			url: root + 'api/setReserve',
-			data: data,
-
-			success: function(result, textStatus, xhr){
-				var xml = $(xhr.responseXML);
-				if (xml.find('success').length > 0){
-					var add = data.oneclick==1;
-					var message = addMark(xml, target, target.parents('.content-wrap')) + 'に';
-					if (add) message = '追加';
-
-					Snackbar.MaterialSnackbar.showSnackbar({message: '予約を' + message + 'しました'});
-				}else{
-					errMessage(xml)
-				}
-				target.parents('.cell').removeClass('clicked');
-				showSpinner();
-			}
-		});
-	});
-
-	//更新通知のカウンタを取得
-	var notifyCount;
-	if (sessionStorage.getItem('notifyCount')){
-		notifyCount = sessionStorage.getItem('notifyCount');
-	}else{
-		$.get(root + 'api/Common', {notify: 2}, function(result, textStatus, xhr){
-			notifyCount = $(xhr.responseXML).find('info').text();
-			sessionStorage.setItem('notifyCount', notifyCount);
-		});
-	}
-
-	//番組詳細を表示
-	$('.open_info').click(function(){
-		getEpgInfo($(this).parents('.cell'), $(this).data(), $(this).data('starttime'));
-	});
-
-	$('.close_info').click(function(){
-		$('#sidePanel, .close_info.mdl-layout__obfuscator, .open').removeClass('is-visible open');
-	});
-});
+}
