@@ -22,3 +22,6 @@ services:
       - type: bind
         source: '/mnt/'
         target: '/mnt/'
+        bind:
+          # ホスト側で /mnt/ 配下を後からマウント・再マウントした場合もコンテナへ伝播させる
+          propagation: rslave
